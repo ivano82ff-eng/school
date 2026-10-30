@@ -10,8 +10,9 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { api, downloadMaterial } from '../api';
+import { api } from '../api';
 import { useAuth } from '../auth';
+import MaterialPreview from '../components/MaterialPreview';
 
 export default function CourseDetail() {
   const { id } = useParams();
@@ -20,6 +21,7 @@ export default function CourseDetail() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
 
   function load() {
     api(`/courses/${id}`)
@@ -128,15 +130,7 @@ export default function CourseDetail() {
                 <List.Item.Meta
                   title={
                     m.file_id ? (
-                      <Button
-                        type="link"
-                        style={{ padding: 0 }}
-                        onClick={() =>
-                          downloadMaterial(m.id, m.original_name || m.title).catch((e) =>
-                            setError(e.message)
-                          )
-                        }
-                      >
+                      <Button type="link" style={{ padding: 0 }} onClick={() => setPreview(m)}>
                         {m.title}
                       </Button>
                     ) : m.url ? (
@@ -154,6 +148,7 @@ export default function CourseDetail() {
           />
         </Card>
       )}
+      <MaterialPreview material={preview} open={!!preview} onClose={() => setPreview(null)} />
     </Space>
   );
 }

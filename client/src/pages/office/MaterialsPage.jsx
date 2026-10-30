@@ -14,9 +14,10 @@ import {
   Upload,
 } from 'antd';
 import { DeleteOutlined, InboxOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons';
-import { api, downloadMaterial, uploadCourseMaterial } from '../../api';
+import { api, uploadCourseMaterial } from '../../api';
 import { useAuth } from '../../auth';
 import { can } from '../../permissions';
+import MaterialPreview from '../../components/MaterialPreview';
 
 const ACCEPT =
   '.ppt,.pptx,.key,.pdf,.mp4,.webm,.mov,.doc,.docx,.odt,.txt,.rtf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.zip';
@@ -43,6 +44,7 @@ export default function MaterialsPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   function loadCourses() {
     return api('/courses').then((d) => {
@@ -83,15 +85,6 @@ export default function MaterialsPage() {
     try {
       await api(`/materials/${id}`, { method: 'DELETE' });
       await loadMaterials();
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
-  async function openFile(material) {
-    setError('');
-    try {
-      await downloadMaterial(material.id, material.original_name || material.title);
     } catch (e) {
       setError(e.message);
     }
@@ -219,7 +212,7 @@ export default function MaterialsPage() {
               <List.Item.Meta
                 title={
                   m.file_id ? (
-                    <Button type="link" style={{ padding: 0 }} onClick={() => openFile(m)}>
+                    <Button type="link" style={{ padding: 0 }} onClick={() => setPreview(m)}>
                       {m.title}
                     </Button>
                   ) : m.url ? (
@@ -236,6 +229,7 @@ export default function MaterialsPage() {
           )}
         />
       </Card>
+      <MaterialPreview material={preview} open={!!preview} onClose={() => setPreview(null)} />
     </Space>
   );
 }

@@ -88,7 +88,7 @@ export function uploadCourseMaterial(courseId, file, { onProgress } = {}) {
   });
 }
 
-export async function downloadMaterial(materialId, filename) {
+export async function fetchMaterialBlob(materialId) {
   const headers = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -97,7 +97,11 @@ export async function downloadMaterial(materialId, filename) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Не удалось открыть файл');
   }
-  const blob = await res.blob();
+  return res.blob();
+}
+
+export async function downloadMaterial(materialId, filename) {
+  const blob = await fetchMaterialBlob(materialId);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
