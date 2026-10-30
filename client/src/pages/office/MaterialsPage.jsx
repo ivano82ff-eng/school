@@ -7,19 +7,42 @@ import {
   Input,
   InputNumber,
   List,
+  Progress,
   Select,
   Space,
   Typography,
+  Upload,
 } from 'antd';
-import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
-import { api } from '../../api';
+import { DeleteOutlined, InboxOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons';
+import { api, downloadMaterial, uploadCourseMaterial } from '../../api';
+import { useAuth } from '../../auth';
+import { can } from '../../permissions';
+
+const ACCEPT =
+  '.ppt,.pptx,.key,.pdf,.mp4,.webm,.mov,.doc,.docx,.odt,.txt,.rtf,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.gif,.webp,.zip';
+const ALLOWED = new Set(ACCEPT.split(',').map((ext) => ext.slice(1)));
+const MAX_BYTES = 40 * 1024 * 1024;
+const TYPE_HINT =
+  'Презентации (ppt, pptx, key), PDF, видео (mp4, webm, mov), документы (doc, docx, odt, txt, rtf), таблицы (xls, xlsx, csv), изображения (png, jpg, jpeg, gif, webp), архивы (zip). До 40 МБ.';
+const TYPE_ERROR =
+  'Этот тип файла не поддерживается. Загрузите презентацию, PDF, видео, документ, таблицу, изображение или zip.';
+
+function fileExt(name) {
+  const base = String(name || '').split(/[/\\]/).pop() || '';
+  const dot = base.lastIndexOf('.');
+  if (dot <= 0) return '';
+  return base.slice(dot + 1).toLowerCase();
+}
 
 export default function MaterialsPage() {
+  const { user } = useAuth();
+  const canUpload = can(user, 'content.teach', 'content.builder');
   const [courses, setCourses] = useState([]);
   const [courseId, setCourseId] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [progress, setProgress] = useState(null);
 
   function loadCourses() {
     return api('/courses').then((d) => {
@@ -65,6 +88,47 @@ export default function MaterialsPage() {
     }
   }
 
+  async function openFile(material) {
+    setError('');
+    try {
+      await downloadMaterial(material.id, material.original_name || material.title);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function beforeUpload(file) {
+    setError('');
+    setMessage('');
+    const ext = fileExt(file.name);
+    if (!ALLOWED.has(ext)) {
+      setError(TYPE_ERROR);
+      return Upload.LIST_IGNORE;
+    }
+    if (file.size > MAX_BYTES) {
+      setError('Файл больше 40 МБ. Выберите файл меньшего размера.');
+      return Upload.LIST_IGNORE;
+    }
+    return true;
+  }
+
+  async function customRequest({ file, onSuccess, onError }) {
+    setProgress(0);
+    try {
+      await uploadCourseMaterial(courseId, file, {
+        onProgress: (pct) => setProgress(pct),
+      });
+      setProgress(100);
+      setMessage('Файл загружен');
+      onSuccess({}, file);
+      await loadMaterials();
+    } catch (e) {
+      setProgress(null);
+      setError(e.message);
+      onError(e);
+    }
+  }
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div>
@@ -72,7 +136,7 @@ export default function MaterialsPage() {
           Материалы курсов
         </Typography.Title>
         <Typography.Paragraph type="secondary">
-          Ссылки и шпаргалки для учеников
+          Ссылки и файлы для учеников выбранного курса
         </Typography.Paragraph>
       </div>
 
@@ -86,7 +150,37 @@ export default function MaterialsPage() {
         options={courses.map((c) => ({ value: c.id, label: `${c.icon} ${c.title}` }))}
       />
 
-      <Card title="Добавить" size="small">
+      {canUpload && (
+        <Card title="Загрузить файл" size="small">
+          <Upload.Dragger
+            accept={ACCEPT}
+            multiple={false}
+            maxCount={1}
+            showUploadList={false}
+            disabled={!courseId}
+            beforeUpload={beforeUpload}
+            customRequest={customRequest}
+          >
+            <p className="ant-upload-drag-icon">
+              <InboxOutlined />
+            </p>
+            <p className="ant-upload-text">Перетащите файл сюда</p>
+            <p className="ant-upload-hint">{TYPE_HINT}</p>
+            <Button icon={<UploadOutlined />} disabled={!courseId}>
+              Выбрать файл
+            </Button>
+          </Upload.Dragger>
+          {progress != null && (
+            <Progress
+              percent={progress}
+              status={progress >= 100 ? 'success' : 'active'}
+              style={{ marginTop: 12 }}
+            />
+          )}
+        </Card>
+      )}
+
+      <Card title="Добавить ссылку" size="small">
         <Form layout="vertical" onFinish={onCreate} style={{ maxWidth: 560 }}>
           <Form.Item name="title" label="Название" rules={[{ required: true }]}>
             <Input />
@@ -124,7 +218,11 @@ export default function MaterialsPage() {
             >
               <List.Item.Meta
                 title={
-                  m.url ? (
+                  m.file_id ? (
+                    <Button type="link" style={{ padding: 0 }} onClick={() => openFile(m)}>
+                      {m.title}
+                    </Button>
+                  ) : m.url ? (
                     <a href={m.url} target="_blank" rel="noreferrer">
                       <LinkOutlined /> {m.title}
                     </a>
@@ -132,7 +230,7 @@ export default function MaterialsPage() {
                     m.title
                   )
                 }
-                description={m.description}
+                description={m.file_id ? m.original_name || m.description : m.description}
               />
             </List.Item>
           )}

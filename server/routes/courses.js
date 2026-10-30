@@ -104,9 +104,11 @@ router.get('/:id', (req, res) => {
 
   const materials = db
     .prepare(
-      `SELECT id, title, url, description, sort_order
-       FROM course_materials WHERE course_id = ?
-       ORDER BY sort_order, id`
+      `SELECT m.id, m.title, m.url, m.description, m.sort_order, m.file_id, f.original_name
+       FROM course_materials m
+       LEFT JOIN files f ON f.id = m.file_id
+       WHERE m.course_id = ?
+       ORDER BY m.sort_order, m.id`
     )
     .all(course.id);
 

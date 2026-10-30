@@ -656,6 +656,15 @@ db.exec(`
   }
 })();
 
+(() => {
+  const cols = db.prepare('PRAGMA table_info(course_materials)').all().map((c) => c.name);
+  if (!cols.includes('file_id')) {
+    db.exec(
+      `ALTER TABLE course_materials ADD COLUMN file_id INTEGER REFERENCES files(id) ON DELETE SET NULL`
+    );
+  }
+})();
+
 // Mark overdue payments on boot
 try {
   db.prepare(

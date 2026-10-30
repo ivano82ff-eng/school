@@ -138,6 +138,69 @@ describe('wave4 messages, gradebook, materials, certificates', () => {
     assert.equal(created.status, 201);
   });
 
+  it('uploads a course file for teachers and admins only', async () => {
+    const courses = await api('/api/courses');
+    const course = courses.data.courses[0];
+    assert.ok(course);
+
+    async function upload(token, filename, bytes, type = 'text/plain') {
+      const fd = new FormData();
+      fd.append('course_id', String(course.id));
+      fd.append('file', new Blob([bytes], { type }), filename);
+      const res = await fetch(`${baseUrl}/api/materials/upload`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      return { status: res.status, data };
+    }
+
+    const teacherFile = await upload(teacherToken, '../../notes.txt', 'teacher notes');
+    assert.equal(teacherFile.status, 201, teacherFile.data.error);
+    assert.equal(teacherFile.data.material.original_name, 'notes.txt');
+    assert.equal(teacherFile.data.material.title, 'notes.txt');
+    assert.ok(teacherFile.data.material.file_id);
+    assert.equal(teacherFile.data.material.storage_key, undefined);
+
+    const opened = await fetch(
+      `${baseUrl}/api/materials/${teacherFile.data.material.id}/file`,
+      { headers: { Authorization: `Bearer ${studentToken}` } }
+    );
+    assert.equal(opened.status, 200);
+    assert.match(await opened.text(), /teacher notes/);
+
+    const parentOpen = await fetch(
+      `${baseUrl}/api/materials/${teacherFile.data.material.id}/file`,
+      { headers: { Authorization: `Bearer ${parentToken}` } }
+    );
+    assert.equal(parentOpen.status, 200);
+
+    const studentUp = await upload(studentToken, 'homework.txt', 'nope');
+    assert.equal(studentUp.status, 403);
+    const parentUp = await upload(parentToken, 'homework.txt', 'nope');
+    assert.equal(parentUp.status, 403);
+
+    const bad = await upload(teacherToken, 'virus.exe', 'nope', 'application/octet-stream');
+    assert.equal(bad.status, 400);
+    assert.match(bad.data.error, /не поддерживается/);
+
+    const admin = await api('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'admin@itscool.local', password: 'admin123' },
+    });
+    assert.equal(admin.status, 200);
+    const adminFile = await upload(admin.data.token, 'slide.pptx', 'pptx-bytes', 'application/vnd.ms-powerpoint');
+    assert.equal(adminFile.status, 201, adminFile.data.error);
+    assert.equal(adminFile.data.material.original_name, 'slide.pptx');
+
+    const frozen = await api('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'methodist@itscool.local', password: 'methodist123' },
+    });
+    assert.equal(frozen.status, 403);
+  });
+
   it('opens student certificate', async () => {
     const dash = await api('/api/student/dashboard', { token: studentToken });
     assert.equal(dash.status, 200);

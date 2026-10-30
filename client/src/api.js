@@ -59,6 +59,53 @@ export function fileDownloadUrl(fileId) {
   return `/api/files/${fileId}`;
 }
 
+export function uploadCourseMaterial(courseId, file, { onProgress } = {}) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('course_id', String(courseId));
+    fd.append('file', file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/materials/upload');
+    const token = getToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      let data = {};
+      try {
+        data = JSON.parse(xhr.responseText || '{}');
+      } catch {
+        data = {};
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data.material);
+      else reject(new Error(data.error || 'Ошибка загрузки'));
+    };
+    xhr.onerror = () => reject(new Error('Ошибка загрузки'));
+    xhr.send(fd);
+  });
+}
+
+export async function downloadMaterial(materialId, filename) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api/materials/${materialId}/file`, { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Не удалось открыть файл');
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'file';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function downloadFile(fileId, filename) {
   const headers = {};
   const token = getToken();

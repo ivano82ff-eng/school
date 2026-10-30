@@ -42,7 +42,20 @@ function randomToken(bytes = 16) {
 }
 
 function absolutePath(storageKey) {
-  return path.join(uploadsRoot, storageKey);
+  const key = path.posix.basename(String(storageKey || '').replace(/\\/g, '/'));
+  if (!key || key === '.' || key === '..') {
+    const err = new Error('Некорректное имя файла');
+    err.status = 400;
+    throw err;
+  }
+  const root = path.resolve(uploadsRoot);
+  const abs = path.resolve(root, key);
+  if (abs !== root && !abs.startsWith(root + path.sep)) {
+    const err = new Error('Некорректное имя файла');
+    err.status = 400;
+    throw err;
+  }
+  return abs;
 }
 
 function parseJson(raw, fallback = {}) {

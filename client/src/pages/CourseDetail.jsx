@@ -10,7 +10,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { api } from '../api';
+import { api, downloadMaterial } from '../api';
 import { useAuth } from '../auth';
 
 export default function CourseDetail() {
@@ -127,7 +127,19 @@ export default function CourseDetail() {
               <List.Item>
                 <List.Item.Meta
                   title={
-                    m.url ? (
+                    m.file_id ? (
+                      <Button
+                        type="link"
+                        style={{ padding: 0 }}
+                        onClick={() =>
+                          downloadMaterial(m.id, m.original_name || m.title).catch((e) =>
+                            setError(e.message)
+                          )
+                        }
+                      >
+                        {m.title}
+                      </Button>
+                    ) : m.url ? (
                       <a href={m.url} target="_blank" rel="noreferrer">
                         {m.title}
                       </a>
@@ -135,7 +147,7 @@ export default function CourseDetail() {
                       m.title
                     )
                   }
-                  description={m.description}
+                  description={m.file_id ? m.original_name || m.description : m.description}
                 />
               </List.Item>
             )}
