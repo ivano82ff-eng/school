@@ -1,0 +1,185 @@
+# IT-Scool
+
+Обучающая платформа IT-курсов для школьников **1–11 классов**.
+
+Стек: **React (Vite)** + **Express** + **SQLite** (`node:sqlite`, файл `data/itscool.db`).
+
+**Модель деплоя:** собрали у себя → перенесли папку на хост с Node.js 22.5+ → `npm start`.  
+Один процесс отдаёт и API, и фронт (порт 3000).
+
+## Что умеет
+
+- Каталог курсов с фильтром по классу и категории
+- Регистрация учеников и преподавателей
+- Запись на курс, уроки (Markdown), тесты, прогресс
+- Кабинет преподавателя: создание курсов и уроков
+- **Офис MVP:** контакты ученик/родитель, группы, оплаты, расписание
+- **Wave 2:** CRM/заявки, посещаемость, домашние задания, отчёты, кабинет родителя, публичная заявка `/apply`
+- **Wave 3:** уведомления, объявления, кабинет ученика (ДЗ/расписание/сертификаты)
+- **Wave 4:** сообщения, журнал оценок, материалы курсов, печать сертификата
+- **Wave 5 / Дневник:** прозрачные оценки с кастомными формулами, запросы на повышение, обратная связь по ролям (`/diary`)
+- **Wave 6:** пробные уроки из CRM, портфолио ученика, глобальный поиск, CSV-экспорт оплат и дневника
+- **Wave 7:** Documents lite (файлы/договоры/ДЗ), конструктор курсов на блоках-виджетах, тесты с автооценкой в дневник, share-ссылки (`/teacher/builder/:id`, `/office/documents`, `/s/:token`)
+- **Wave 8 / RBAC:** роли методист, бухгалтер, HR, аналитик, рекламщик; гибкие права и видимость разделов; админка людей и ролей (`/admin`)
+- **Wave 9 / Лендинги:** конструктор промо-страниц для маркетолога (темы/цвета как в Тильде, блоки, опросы, геймификация, пробный контент, аналитика, заявки → CRM) — `/office/landings`, публично `/l/:slug`
+- **Wave 10 / Аналитика:** конструктор отчётов с графиками, шаблонами и экспортом HTML/PDF/PPTX/CSV/JSON — `/office/analytics`
+- **UI:** Ant Design, крупные элементы, светлая/тёмная тема (акцент `#8E6FAF` на фоне `#F5F7FA`), токены в `client/src/theme/colors.js`
+- **Презентация заказчику:** публичная страница `/product` — карта модулей, скриншоты, функционал, роли и демо-доступы (не ломает кабинеты/CRM)
+
+## Быстрый старт (локально)
+
+Нужен **Node.js 22.5+**.
+
+```bash
+npm run setup
+npm start
+```
+
+Открой: http://localhost:3000
+
+`npm run setup` = установка зависимостей + заполнение БД + сборка React.
+
+## Перенос на хост (ваш сценарий)
+
+```bash
+# 1) дома
+npm run setup
+npm run pack
+
+# 2) копируете папку release/it-scool на сервер с Node 22.5+
+
+# 3) на сервере
+cd it-scool
+npm install --omit=dev
+set JWT_SECRET=длинная-случайная-строка
+set PORT=3000
+npm start
+```
+
+Подробности, pm2, Nginx, Beget VPS: **[DEPLOY.md](./DEPLOY.md)**.
+
+> Хостинг только с `public_html` без запуска Node **не подойдёт** — нужен VPS/сервер, где можно выполнить `npm start`.
+
+### Режим разработки
+
+```bash
+npm run install:all
+npm run seed
+npm run dev
+```
+
+- фронт: http://localhost:5173  
+- API: http://localhost:3000
+
+## Перенос на хост (Nginx)
+
+1. Скопируйте релиз (см. выше) на сервер.
+2. `npm install --omit=dev` && `npm start` (или pm2).
+3. Проксируйте домен на порт **3000**:
+
+```nginx
+server {
+  listen 80;
+  server_name your-domain.ru;
+
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}
+```
+
+4. Секрет JWT:
+
+```bash
+set JWT_SECRET=длинная-случайная-строка
+set PORT=3000
+npm start
+```
+
+На Linux/macOS:
+
+```bash
+export JWT_SECRET=длинная-случайная-строка
+export PORT=3000
+npm start
+```
+
+База лежит в `data/itscool.db` — копируйте её вместе с релизом, если нужен прогресс/демо.
+
+### Автозапуск (PM2)
+
+```bash
+npm install -g pm2
+pm2 start server/index.js --name it-scool
+pm2 save
+```
+
+## Тесты
+
+```bash
+npm test
+```
+
+Проверяются API (auth, курсы, уроки, офис MVP) и конфиг обучающего гида.
+
+## Обучающий гид
+
+При первом входе появляется визуальный тур по интерфейсу. Повторить можно кнопкой **Гид** в шапке.
+
+| Роль            | Email                      | Пароль         |
+|-----------------|----------------------------|----------------|
+| Ученик          | student@itscool.local      | student123     |
+| Родитель        | parent@itscool.local       | parent123      |
+| Преподаватель   | teacher@itscool.local      | teacher123     |
+| Методист        | methodist@itscool.local    | methodist123   |
+| Бухгалтер       | accountant@itscool.local   | accountant123  |
+| HR              | hr@itscool.local           | hr1234         |
+| Аналитик        | analyst@itscool.local      | analyst123     |
+| Рекламщик       | marketer@itscool.local     | marketer123    |
+| Админ           | admin@itscool.local        | admin123       |
+
+Админ (и HR с правом `admin.users`) управляет людьми и ролями:
+- `/admin/guide` — гид по платформе (только роль admin): MVP, карта модулей, FAQ, стратегия
+- `/admin/users` — люди (создание, роль, блокировка)
+- `/admin/roles` — список ролей и создание
+- `/admin/roles/:code` — правка прав и видимости разделов
+
+API: `GET/POST /api/admin/roles`, `PATCH /api/admin/roles/:code`, `GET/POST/PATCH /api/admin/users`.
+
+### Лендинги (маркетолог)
+
+- `/office/landings` — список акций и промо-страниц
+- `/office/landings/:id/edit` — конструктор блоков и тем
+- `/office/landings/:id/analytics` — просмотры, лиды, конверсия, события
+- Публично: `/l/python-leto` (демо после seed)
+
+Демо: `marketer@itscool.local` / `marketer123`
+
+### Аналитика и отчёты
+
+- `/office/analytics` — конструктор: шаблоны (маркетинг, лендинги, финансы, операции), виджеты (bar/line/pie/funnel/KPI/таблица), сохранение досок
+- Экспорт: **HTML, PDF, PPTX, CSV, JSON**
+- Аналитика лендинга `/office/landings/:id/analytics` — графики + быстрый экспорт
+
+Права: `office.reports` или `marketing.analytics` (маркетолог, аналитик, админ, преподаватель).
+
+Повторный `npm run seed` **очищает** базу и заливает демо-данные заново (права ролей сбрасываются к значениям по умолчанию).
+
+## Структура
+
+```
+it-scool/
+  server/          # Express API + SQLite
+  client/          # React UI (источник)
+  client/dist/     # собранный фронт (нужен на хосте)
+  data/            # itscool.db
+  release/         # появляется после npm run pack
+  package.json
+```
+
+## Курсы из коробки
+
+Основы ПК, Scratch, Python, HTML/CSS, алгоритмы, JavaScript, кибербезопасность, портфолио — с привязкой к возрастным группам 1–11 классов.

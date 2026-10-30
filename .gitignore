@@ -1,0 +1,15 @@
+node_modules/
+client/node_modules/
+client/dist/
+release/
+data/*.db
+data/*.db-*
+data/uploads/
+.DS_Store
+.env
+*.log
+*-out.txt
+build-log.txt
+build-out.txt
+.vscode/
+.idea/
