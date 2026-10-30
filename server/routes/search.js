@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('search.access')];
@@ -26,7 +26,8 @@ router.get('/', ...staff, (req, res) => {
   }
   const like = `%${q}%`;
 
-  const contacts = db
+  const contacts = userCan(req.user, 'office.contacts')
+    ? db
     .prepare(
       `SELECT id, type, name, phone, email, grade FROM contacts
        WHERE name LIKE ? OR phone LIKE ? OR email LIKE ?
@@ -39,9 +40,11 @@ router.get('/', ...staff, (req, res) => {
       title: c.name,
       subtitle: `${c.type}${c.grade ? ` · ${c.grade} кл.` : ''}`,
       link: '/office/contacts',
-    }));
+    }))
+    : [];
 
-  const leads = db
+  const leads = userCan(req.user, 'office.leads')
+    ? db
     .prepare(
       `SELECT id, name, child_name, phone, email, status, interest FROM leads
        WHERE name LIKE ? OR child_name LIKE ? OR phone LIKE ? OR email LIKE ? OR interest LIKE ?
@@ -54,9 +57,11 @@ router.get('/', ...staff, (req, res) => {
       title: l.name,
       subtitle: `${l.child_name || ''} · ${l.status}`.trim(),
       link: '/office/leads',
-    }));
+    }))
+    : [];
 
-  const groups = db
+  const groups = userCan(req.user, 'office.groups')
+    ? db
     .prepare(
       `SELECT g.id, g.name, c.title as course_title FROM groups g
        LEFT JOIN courses c ON c.id = g.course_id
@@ -70,7 +75,8 @@ router.get('/', ...staff, (req, res) => {
       title: g.name,
       subtitle: g.course_title || 'группа',
       link: '/office/groups',
-    }));
+    }))
+    : [];
 
   const courses = db
     .prepare(
@@ -87,7 +93,8 @@ router.get('/', ...staff, (req, res) => {
       link: `/courses/${c.id}`,
     }));
 
-  const trials = db
+  const trials = userCan(req.user, 'office.trials')
+    ? db
     .prepare(
       `SELECT t.id, t.title, t.starts_at, t.status, l.child_name, l.name as parent_name
        FROM trial_lessons t JOIN leads l ON l.id = t.lead_id
@@ -101,7 +108,8 @@ router.get('/', ...staff, (req, res) => {
       title: t.title,
       subtitle: `${t.child_name || t.parent_name} · ${t.status} · ${t.starts_at}`,
       link: '/office/trials',
-    }));
+    }))
+    : [];
 
   res.json({
     q,
@@ -109,7 +117,11 @@ router.get('/', ...staff, (req, res) => {
   });
 });
 
-router.get('/export/payments.csv', ...staff, (_req, res) => {
+router.get(
+  '/export/payments.csv',
+  authRequired,
+  requirePermission('office.payments', 'office.reports'),
+  (_req, res) => {
   const rows = db
     .prepare(
       `SELECT p.*, c.name as contact_name, g.name as group_name
@@ -137,7 +149,11 @@ router.get('/export/payments.csv', ...staff, (_req, res) => {
   res.send(csv);
 });
 
-router.get('/export/diary.csv', ...staff, (req, res) => {
+router.get(
+  '/export/diary.csv',
+  authRequired,
+  requirePermission('diary.access'),
+  (req, res) => {
   const groupId = req.query.group_id ? Number(req.query.group_id) : null;
   let sql = `
     SELECT e.*, c.name as student_name, g.name as group_name, crit.name as criteria_name

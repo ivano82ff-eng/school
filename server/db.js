@@ -646,6 +646,16 @@ db.exec(`
   }
 })();
 
+(() => {
+  const cols = db.prepare('PRAGMA table_info(payments)').all().map((c) => c.name);
+  if (!cols.includes('created_by')) {
+    db.exec(`ALTER TABLE payments ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+  }
+  if (!cols.includes('updated_by')) {
+    db.exec(`ALTER TABLE payments ADD COLUMN updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+  }
+})();
+
 // Mark overdue payments on boot
 try {
   db.prepare(

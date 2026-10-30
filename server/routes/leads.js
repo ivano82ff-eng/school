@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired, requirePermission } = require('../middleware/auth');
+const { reuseOrCreateContact } = require('../services/helpers');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('office.leads')];
@@ -177,28 +178,25 @@ router.post('/:id/convert', ...staff, (req, res) => {
   try {
     let parentId = null;
     if (lead.name) {
-      parentId = db
-        .prepare(
-          `INSERT INTO contacts (type, name, phone, email, notes)
-           VALUES ('parent', ?, ?, ?, ?)`
-        )
-        .run(lead.name, lead.phone, lead.email, `Из заявки #${lead.id}`).lastInsertRowid;
+      parentId = reuseOrCreateContact({
+        type: 'parent',
+        name: lead.name,
+        phone: lead.phone,
+        email: lead.email,
+        notes: `Из заявки #${lead.id}`,
+      });
     }
 
     let studentId = null;
     if (lead.child_name) {
-      studentId = db
-        .prepare(
-          `INSERT INTO contacts (type, name, phone, email, grade, notes)
-           VALUES ('student', ?, ?, ?, ?, ?)`
-        )
-        .run(
-          lead.child_name,
-          lead.phone,
-          lead.email,
-          lead.child_grade,
-          `Из заявки #${lead.id}`
-        ).lastInsertRowid;
+      studentId = reuseOrCreateContact({
+        type: 'student',
+        name: lead.child_name,
+        phone: lead.phone,
+        email: lead.email,
+        grade: lead.child_grade,
+        notes: `Из заявки #${lead.id}`,
+      });
 
       if (parentId && studentId) {
         db.prepare(

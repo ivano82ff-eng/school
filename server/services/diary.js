@@ -1,5 +1,21 @@
 const db = require('../db');
 const { computePeriodGrade } = require('./diaryMath');
+const { hasPermission } = require('./rbac');
+
+function isPortalRole(user) {
+  return user?.role === 'student' || user?.role === 'parent';
+}
+
+/** Staff with diary.access see the whole school. Students and parents stay scoped. */
+function canReadSchoolDiary(user) {
+  if (!user || isPortalRole(user)) return false;
+  return hasPermission(user.role, 'diary.access', 'diary.manage');
+}
+
+function canEditSchoolDiary(user) {
+  if (!user || isPortalRole(user)) return false;
+  return hasPermission(user.role, 'diary.manage');
+}
 
 function studentContactByUser(userId) {
   return db
@@ -23,10 +39,10 @@ function childrenContactIds(parentContactId) {
 /** Can this user see diary of this student contact? */
 function canViewStudent(user, contactId) {
   if (!user) return false;
-  if (user.role === 'admin' || user.role === 'teacher') return true;
+  if (canReadSchoolDiary(user)) return true;
   if (user.role === 'student') {
     const c = studentContactByUser(user.id);
-    return c && c.id === Number(contactId);
+    return !!(c && c.id === Number(contactId));
   }
   if (user.role === 'parent') {
     const p = parentContactByUser(user.id);
@@ -36,14 +52,36 @@ function canViewStudent(user, contactId) {
   return false;
 }
 
-function canManageGroup(user, groupId) {
-  if (!user) return false;
-  if (user.role === 'admin') return true;
-  if (user.role === 'teacher') {
-    const g = db.prepare('SELECT teacher_id FROM groups WHERE id = ?').get(groupId);
-    return !g?.teacher_id || g.teacher_id === user.id || true; // office teachers share groups
+/** One school: diary editors may change any group's formula. */
+function canManageGroup(user, _groupId) {
+  return canEditSchoolDiary(user);
+}
+
+function listAccessibleStudents(user) {
+  if (!user) return [];
+  if (canReadSchoolDiary(user)) {
+    return db
+      .prepare(
+        `SELECT id, name, grade, user_id FROM contacts WHERE type = 'student' ORDER BY name`
+      )
+      .all();
   }
-  return false;
+  if (user.role === 'student') {
+    const c = studentContactByUser(user.id);
+    return c ? [{ id: c.id, name: c.name, grade: c.grade, user_id: c.user_id }] : [];
+  }
+  if (user.role === 'parent') {
+    const p = parentContactByUser(user.id);
+    if (!p) return [];
+    const ids = childrenContactIds(p.id);
+    if (!ids.length) return [];
+    return db
+      .prepare(
+        `SELECT id, name, grade, user_id FROM contacts WHERE id IN (${ids.map(() => '?').join(',')})`
+      )
+      .all(...ids);
+  }
+  return [];
 }
 
 function ensureSystemCriteria() {
@@ -175,6 +213,9 @@ module.exports = {
   childrenContactIds,
   canViewStudent,
   canManageGroup,
+  canReadSchoolDiary,
+  canEditSchoolDiary,
+  listAccessibleStudents,
   ensureSystemCriteria,
   getSchemeForGroup,
   getSchemeParts,

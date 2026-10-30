@@ -10,7 +10,7 @@ export default function AttendancePage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api('/schedule')
+    api('/attendance/sessions')
       .then((d) => setSessions(d.sessions))
       .catch((e) => setError(e.message));
   }, []);

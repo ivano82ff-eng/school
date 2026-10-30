@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('office.contacts')];
@@ -62,11 +62,13 @@ router.get('/:id', ...staff, (req, res) => {
        WHERE gm.contact_id = ? AND gm.status = 'active'`
     )
     .all(contact.id);
-  const payments = db
-    .prepare(
-      `SELECT * FROM payments WHERE contact_id = ? ORDER BY due_date DESC LIMIT 20`
-    )
-    .all(contact.id);
+  const payments = userCan(req.user, 'office.payments', 'office.reports')
+    ? db
+        .prepare(
+          `SELECT * FROM payments WHERE contact_id = ? ORDER BY due_date DESC LIMIT 20`
+        )
+        .all(contact.id)
+    : [];
   res.json({ contact: detail, groups, payments });
 });
 

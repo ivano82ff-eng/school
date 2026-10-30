@@ -4,6 +4,7 @@
 
 const db = require('../db');
 const { parseJson } = require('./content');
+const { hasPermission } = require('./rbac');
 
 const DATASETS = [
   {
@@ -11,62 +12,88 @@ const DATASETS = [
     name: 'Лиды по статусам',
     chartTypes: ['pie', 'bar', 'kpi'],
     category: 'crm',
+    permissions: ['office.leads', 'marketing.analytics', 'marketing.landings'],
   },
   {
     code: 'leads_by_day',
     name: 'Лиды по дням',
     chartTypes: ['line', 'bar'],
     category: 'crm',
+    permissions: ['office.leads', 'marketing.analytics', 'marketing.landings'],
   },
   {
     code: 'leads_by_source',
     name: 'Лиды по источникам',
     chartTypes: ['pie', 'bar'],
     category: 'crm',
+    permissions: ['office.leads', 'marketing.analytics', 'marketing.landings'],
   },
   {
     code: 'landing_funnel',
     name: 'Воронка лендингов',
     chartTypes: ['bar', 'funnel', 'kpi'],
     category: 'marketing',
+    permissions: ['marketing.analytics', 'marketing.landings'],
   },
   {
     code: 'landing_events_by_type',
     name: 'События лендингов',
     chartTypes: ['pie', 'bar'],
     category: 'marketing',
+    permissions: ['marketing.analytics', 'marketing.landings'],
   },
   {
     code: 'landings_comparison',
     name: 'Сравнение лендингов',
     chartTypes: ['bar', 'table'],
     category: 'marketing',
+    permissions: ['marketing.analytics', 'marketing.landings'],
   },
   {
     code: 'revenue_by_status',
     name: 'Оплаты по статусам',
     chartTypes: ['pie', 'bar', 'kpi'],
     category: 'finance',
+    permissions: ['office.payments', 'office.reports'],
   },
   {
     code: 'revenue_trend',
     name: 'Оплаты по дням',
     chartTypes: ['line', 'bar'],
     category: 'finance',
+    permissions: ['office.payments', 'office.reports'],
   },
   {
     code: 'attendance_overview',
     name: 'Посещаемость',
     chartTypes: ['pie', 'bar'],
     category: 'ops',
+    permissions: ['office.attendance'],
   },
   {
     code: 'homework_pipeline',
     name: 'Домашние задания',
     chartTypes: ['pie', 'bar', 'kpi'],
     category: 'ops',
+    permissions: ['office.homework', 'office.gradebook'],
   },
 ];
+
+function canRunDataset(role, code) {
+  const ds = DATASETS.find((d) => d.code === code);
+  if (!ds) return false;
+  return hasPermission(role, ...(ds.permissions || []));
+}
+
+function datasetsFor(role) {
+  return DATASETS.filter((d) => canRunDataset(role, d.code));
+}
+
+function presetsFor(role) {
+  return PRESETS.filter((p) =>
+    (p.layout.widgets || []).every((w) => !w.dataset || canRunDataset(role, w.dataset))
+  );
+}
 
 function runDataset(code, { landingId = null, days = 30 } = {}) {
   switch (code) {
@@ -297,4 +324,7 @@ module.exports = {
   PRESETS,
   runDataset,
   serializeBoard,
+  canRunDataset,
+  datasetsFor,
+  presetsFor,
 };

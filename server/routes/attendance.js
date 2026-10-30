@@ -5,6 +5,26 @@ const { authRequired, requirePermission } = require('../middleware/auth');
 const router = express.Router();
 const staff = [authRequired, requirePermission('office.attendance')];
 
+router.get('/sessions', ...staff, (_req, res) => {
+  const sessions = db
+    .prepare(
+      `SELECT s.id, s.title, s.starts_at, s.ends_at, s.status, s.group_id, g.name as group_name
+       FROM schedule_sessions s
+       JOIN groups g ON g.id = s.group_id
+       ORDER BY s.starts_at DESC`
+    )
+    .all()
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      starts_at: s.starts_at,
+      ends_at: s.ends_at,
+      status: s.status,
+      group: { id: s.group_id, name: s.group_name },
+    }));
+  res.json({ sessions });
+});
+
 router.get('/session/:sessionId', ...staff, (req, res) => {
   const session = db
     .prepare('SELECT * FROM schedule_sessions WHERE id = ?')

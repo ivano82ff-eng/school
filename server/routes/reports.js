@@ -1,13 +1,17 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 const { refreshOverduePayments } = require('../services/helpers');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('office.reports')];
 
-router.get('/overview', ...staff, (_req, res) => {
+router.get('/overview', ...staff, (req, res) => {
   refreshOverduePayments();
+  const seeMoney = userCan(req.user, 'office.payments', 'office.reports');
+  const seeAttendance = userCan(req.user, 'office.attendance');
+  const seeLeads = userCan(req.user, 'office.leads', 'marketing.analytics');
+  const seeHomework = userCan(req.user, 'office.homework', 'office.gradebook');
 
   const unpaid = db
     .prepare(
@@ -60,12 +64,12 @@ router.get('/overview', ...staff, (_req, res) => {
     .get().s;
 
   res.json({
-    unpaid,
-    lowAttendance,
-    openLeads,
-    homeworkPending,
-    revenuePaid,
-    revenueOpen,
+    unpaid: seeMoney ? unpaid : [],
+    lowAttendance: seeAttendance ? lowAttendance : null,
+    openLeads: seeLeads ? openLeads : null,
+    homeworkPending: seeHomework ? homeworkPending : null,
+    revenuePaid: seeMoney ? revenuePaid : null,
+    revenueOpen: seeMoney ? revenueOpen : null,
   });
 });
 

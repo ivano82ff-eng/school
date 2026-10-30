@@ -43,10 +43,31 @@ function notifyStudentParents(studentContactId, payload) {
   );
 }
 
+/** Users whose role grants permission, plus admin (*). */
+function notifyByPermission(permission, payload) {
+  const users = db
+    .prepare(
+      `SELECT u.id FROM users u
+       WHERE u.active = 1 AND (
+         u.role = 'admin'
+         OR EXISTS (
+           SELECT 1 FROM role_permissions rp
+           WHERE rp.role_code = u.role AND rp.permission_code IN (?, '*')
+         )
+       )`
+    )
+    .all(permission);
+  notifyUsers(
+    users.map((u) => u.id),
+    payload
+  );
+}
+
 module.exports = {
   notifyUser,
   notifyUsers,
   notifyRole,
+  notifyByPermission,
   notifyContactUser,
   notifyStudentParents,
 };

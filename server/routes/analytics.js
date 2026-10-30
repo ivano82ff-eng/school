@@ -2,10 +2,11 @@ const express = require('express');
 const db = require('../db');
 const { authRequired, requirePermission } = require('../middleware/auth');
 const {
-  DATASETS,
-  PRESETS,
   runDataset,
   serializeBoard,
+  canRunDataset,
+  datasetsFor,
+  presetsFor,
 } = require('../services/analyticsDatasets');
 
 const router = express.Router();
@@ -14,10 +15,11 @@ const staff = [
   requirePermission('office.reports', 'marketing.analytics', 'marketing.landings'),
 ];
 
-router.get('/meta', ...staff, (_req, res) => {
+router.get('/meta', ...staff, (req, res) => {
+  const presets = presetsFor(req.user.role);
   res.json({
-    datasets: DATASETS,
-    presets: PRESETS.map((p) => ({
+    datasets: datasetsFor(req.user.role),
+    presets: presets.map((p) => ({
       code: p.code,
       name: p.name,
       description: p.description,
@@ -29,15 +31,15 @@ router.get('/meta', ...staff, (_req, res) => {
 });
 
 router.get('/presets/:code', ...staff, (req, res) => {
-  const preset = PRESETS.find((p) => p.code === req.params.code);
+  const preset = presetsFor(req.user.role).find((p) => p.code === req.params.code);
   if (!preset) return res.status(404).json({ error: 'Шаблон не найден' });
   res.json({ preset });
 });
 
 router.get('/dataset/:code', ...staff, (req, res) => {
   const code = req.params.code;
-  if (!DATASETS.some((d) => d.code === code)) {
-    return res.status(404).json({ error: 'Датасет не найден' });
+  if (!canRunDataset(req.user.role, code)) {
+    return res.status(403).json({ error: 'Недостаточно прав для этого отчёта' });
   }
   const data = runDataset(code, {
     landingId: req.query.landing_id || null,
@@ -55,7 +57,7 @@ router.post('/datasets/batch', ...staff, (req, res) => {
   };
   const result = {};
   for (const code of codes) {
-    if (DATASETS.some((d) => d.code === code)) {
+    if (canRunDataset(req.user.role, code)) {
       result[code] = runDataset(code, opts);
     }
   }
@@ -82,7 +84,7 @@ router.post('/boards', ...staff, (req, res) => {
   const preset_code = req.body?.preset_code || null;
   let layout = req.body?.layout;
   if (!layout && preset_code) {
-    const preset = PRESETS.find((p) => p.code === preset_code);
+    const preset = presetsFor(req.user.role).find((p) => p.code === preset_code);
     layout = preset?.layout || { widgets: [] };
   }
   layout = layout || { widgets: [] };
@@ -144,6 +146,9 @@ router.post('/export-payload', ...staff, (req, res) => {
     days: req.body?.days || 30,
   };
   const widgets = (layout.widgets || []).map((w) => {
+    if (w.dataset && !canRunDataset(req.user.role, w.dataset)) {
+      return { ...w, data: { series: [], error: 'forbidden' } };
+    }
     const data = w.dataset ? runDataset(w.dataset, opts) : { series: [] };
     return { ...w, data };
   });

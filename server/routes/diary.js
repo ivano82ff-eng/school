@@ -1,52 +1,24 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired, requirePermission } = require('../middleware/auth');
-const { notifyUser, notifyStudentParents } = require('../services/notify');
+const { notifyUser, notifyStudentParents, notifyByPermission } = require('../services/notify');
 const {
-  studentContactByUser,
-  parentContactByUser,
-  childrenContactIds,
   canViewStudent,
   canManageGroup,
+  canReadSchoolDiary,
   ensureSystemCriteria,
   getSchemeForGroup,
   getSchemeParts,
   buildStudentDiary,
   defaultPeriodKey,
+  listAccessibleStudents,
 } = require('../services/diary');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('diary.manage')];
+const readers = [authRequired, requirePermission('diary.access')];
 
 ensureSystemCriteria();
-
-function accessibleStudents(user) {
-  if (user.role === 'admin' || user.role === 'teacher') {
-    return db
-      .prepare(
-        `SELECT c.id, c.name, c.grade, c.user_id
-         FROM contacts c WHERE c.type = 'student' ORDER BY c.name`
-      )
-      .all();
-  }
-  if (user.role === 'student') {
-    const c = studentContactByUser(user.id);
-    return c ? [c] : [];
-  }
-  if (user.role === 'parent') {
-    const p = parentContactByUser(user.id);
-    if (!p) return [];
-    const ids = childrenContactIds(p.id);
-    if (!ids.length) return [];
-    return db
-      .prepare(
-        `SELECT id, name, grade, user_id FROM contacts
-         WHERE id IN (${ids.map(() => '?').join(',')})`
-      )
-      .all(...ids);
-  }
-  return [];
-}
 
 function groupsForStudent(contactId) {
   return db
@@ -62,9 +34,9 @@ function groupsForStudent(contactId) {
 }
 
 /** Overview: students + groups the current user can open */
-router.get('/overview', authRequired, (req, res) => {
+router.get('/overview', ...readers, (req, res) => {
   ensureSystemCriteria();
-  const students = accessibleStudents(req.user).map((s) => ({
+  const students = listAccessibleStudents(req.user).map((s) => ({
     ...s,
     groups: groupsForStudent(s.id),
   }));
@@ -74,7 +46,7 @@ router.get('/overview', authRequired, (req, res) => {
     .all();
 
   let pendingRaises = 0;
-  if (req.user.role === 'teacher' || req.user.role === 'admin') {
+  if (canReadSchoolDiary(req.user)) {
     pendingRaises = db
       .prepare(`SELECT COUNT(*) as c FROM diary_raise_requests WHERE status = 'pending'`)
       .get().c;
@@ -96,7 +68,7 @@ router.get('/overview', authRequired, (req, res) => {
   });
 });
 
-router.get('/criteria', authRequired, (_req, res) => {
+router.get('/criteria', ...readers, (_req, res) => {
   ensureSystemCriteria();
   res.json({
     criteria: db.prepare('SELECT * FROM diary_criteria ORDER BY name').all(),
@@ -127,7 +99,7 @@ router.post('/criteria', ...staff, (req, res) => {
 });
 
 /** Scheme for group */
-router.get('/schemes/:groupId', authRequired, (req, res) => {
+router.get('/schemes/:groupId', ...readers, (req, res) => {
   const groupId = Number(req.params.groupId);
   const scheme = getSchemeForGroup(groupId);
   if (!scheme) return res.json({ scheme: null, parts: [] });
@@ -195,7 +167,7 @@ router.put('/schemes/:groupId', ...staff, (req, res) => {
 });
 
 /** Transparent diary for one student in a group */
-router.get('/student/:contactId/group/:groupId', authRequired, (req, res) => {
+router.get('/student/:contactId/group/:groupId', ...readers, (req, res) => {
   const contactId = Number(req.params.contactId);
   const groupId = Number(req.params.groupId);
   if (!canViewStudent(req.user, contactId) && !canManageGroup(req.user, groupId)) {
@@ -393,34 +365,21 @@ router.post('/raise-requests', authRequired, (req, res) => {
       reason
     ).lastInsertRowid;
 
-  const group = db.prepare('SELECT teacher_id, name FROM groups WHERE id = ?').get(group_id);
-  if (group?.teacher_id) {
-    notifyUser(group.teacher_id, {
-      title: 'Запрос на повышение оценки',
-      body: reason.slice(0, 120),
-      link: '/office/diary',
-      type: 'diary',
-    });
-  } else {
-    const teachers = db.prepare(`SELECT id FROM users WHERE role IN ('teacher','admin')`).all();
-    for (const t of teachers) {
-      notifyUser(t.id, {
-        title: 'Запрос на повышение оценки',
-        body: reason.slice(0, 120),
-        link: '/office/diary',
-        type: 'diary',
-      });
-    }
-  }
+  notifyByPermission('diary.manage', {
+    title: 'Запрос на повышение оценки',
+    body: reason.slice(0, 120),
+    link: '/diary',
+    type: 'diary',
+  });
 
   res.status(201).json({
     request: db.prepare('SELECT * FROM diary_raise_requests WHERE id = ?').get(id),
   });
 });
 
-router.get('/raise-requests', authRequired, (req, res) => {
+router.get('/raise-requests', ...readers, (req, res) => {
   let rows;
-  if (req.user.role === 'teacher' || req.user.role === 'admin') {
+  if (canReadSchoolDiary(req.user)) {
     const status = req.query.status || null;
     rows = status
       ? db
@@ -520,7 +479,7 @@ router.patch('/raise-requests/:id', ...staff, (req, res) => {
 });
 
 /** Feedback between all roles in diary context */
-router.post('/feedback', authRequired, (req, res) => {
+router.post('/feedback', ...readers, (req, res) => {
   const group_id = Number(req.body?.group_id);
   const body = (req.body?.body || '').trim();
   const contact_id = req.body?.contact_id ? Number(req.body.contact_id) : null;

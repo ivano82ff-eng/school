@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Card, Col, Row, Space, Statistic, Tag, Typography, List } from 'antd';
 import { api } from '../../api';
+import { useAuth } from '../../auth';
 
 function money(n) {
   return new Intl.NumberFormat('ru-RU', {
@@ -22,6 +23,7 @@ function fmtDate(s) {
 }
 
 export default function OfficeHome() {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
@@ -34,19 +36,25 @@ export default function OfficeHome() {
   if (error) return <Alert type="error" message={error} showIcon />;
   if (!data) return <Card loading />;
 
-  const { stats, upcoming, recentPayments, recentLeads = [] } = data;
+  const { stats, upcoming, recentPayments, recentLeads = [], visibility = {} } = data;
+  const showMoney = visibility.payments;
+  const showLeads = visibility.leads;
+  const showSchedule = visibility.schedule;
+  const statCards = [
+    ['Ученики', stats.students],
+    ['Родители', stats.parents],
+    ['Группы', stats.groups],
+  ];
+  if (showLeads) statCards.push(['Заявки', stats.leadsOpen || 0]);
+  if (showMoney) {
+    statCards.push(['Просрочки', stats.overdue]);
+    statCards.push(['К оплате', money(stats.pendingSum)]);
+  }
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Row gutter={[12, 12]}>
-        {[
-          ['Ученики', stats.students],
-          ['Родители', stats.parents],
-          ['Группы', stats.groups],
-          ['Заявки', stats.leadsOpen || 0],
-          ['Просрочки', stats.overdue],
-          ['К оплате', money(stats.pendingSum)],
-        ].map(([title, value]) => (
+        {statCards.map(([title, value]) => (
           <Col xs={12} sm={8} md={4} key={title}>
             <Card size="small">
               <Statistic title={title} value={value} />
@@ -56,6 +64,7 @@ export default function OfficeHome() {
       </Row>
 
       <Row gutter={[16, 16]}>
+        {showSchedule && (
         <Col xs={24} lg={8}>
           <Card
             title="Ближайшие занятия"
@@ -74,6 +83,8 @@ export default function OfficeHome() {
             />
           </Card>
         </Col>
+        )}
+        {showLeads && (
         <Col xs={24} lg={8}>
           <Card title="Новые заявки" extra={<Link to="/office/leads">CRM</Link>} size="small">
             <List
@@ -88,8 +99,10 @@ export default function OfficeHome() {
             />
           </Card>
         </Col>
+        )}
+        {showMoney && (
         <Col xs={24} lg={8}>
-          <Card title="Платежи" extra={<Link to="/office/reports">Отчёты</Link>} size="small">
+          <Card title="Платежи" extra={user && <Link to="/office/reports">Отчёты</Link>} size="small">
             <List
               size="small"
               dataSource={recentPayments}
@@ -103,6 +116,7 @@ export default function OfficeHome() {
             />
           </Card>
         </Col>
+        )}
       </Row>
     </Space>
   );

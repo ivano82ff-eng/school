@@ -391,7 +391,7 @@ router.get('/lessons/:id/play', authRequired, (req, res) => {
   const course = ensureCourseSlug(
     db.prepare('SELECT * FROM courses WHERE id = ?').get(lesson.course_id)
   );
-  const includeHidden = req.user.role === 'teacher' || req.user.role === 'admin';
+  const includeHidden = userCan(req.user, 'content.builder', 'content.teach');
   const blocks = getBlocks(lesson.id, { includeHidden });
 
   const legacyQuiz = db.prepare('SELECT id, title FROM quizzes WHERE lesson_id = ?').get(lesson.id);

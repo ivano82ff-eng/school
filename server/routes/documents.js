@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 const { canViewStudent } = require('../services/diary');
 
 const router = express.Router();
@@ -12,7 +12,11 @@ function withFile(doc) {
   return { ...doc, file };
 }
 
-router.get('/', authRequired, (req, res) => {
+router.get(
+  '/',
+  authRequired,
+  requirePermission('documents.access', 'office.documents', 'content.teach'),
+  (req, res) => {
   const { doc_type, entity_type, entity_id, contact_id, q } = req.query;
   let sql = `SELECT d.* FROM documents d WHERE 1=1`;
   const params = [];
@@ -38,7 +42,8 @@ router.get('/', authRequired, (req, res) => {
     params.push(`%${q}%`, `%${q}%`);
   }
 
-  // Access: staff all; parent/student filtered
+  const staffDocs = userCan(req.user, 'office.documents', 'content.teach');
+  // Staff document screen sees the school archive. Other document holders see only their own files.
   if (req.user.role === 'student' || req.user.role === 'parent') {
     const own = db
       .prepare(`SELECT id FROM contacts WHERE user_id = ?`)
@@ -64,6 +69,9 @@ router.get('/', authRequired, (req, res) => {
         JOIN contacts c ON c.id = hs.contact_id WHERE c.user_id = ?
       )))`;
     params.push(...own, req.user.id, req.user.id);
+  } else if (!staffDocs) {
+    sql += ' AND d.created_by = ?';
+    params.push(req.user.id);
   }
 
   sql += ' ORDER BY d.created_at DESC LIMIT 200';
@@ -71,7 +79,11 @@ router.get('/', authRequired, (req, res) => {
   res.json({ documents });
 });
 
-router.post('/', authRequired, (req, res) => {
+router.post(
+  '/',
+  authRequired,
+  requirePermission('documents.access', 'office.documents', 'content.teach'),
+  (req, res) => {
   const file_id = Number(req.body?.file_id);
   const title = (req.body?.title || '').trim();
   const doc_type = req.body?.doc_type || 'other';
@@ -123,11 +135,7 @@ router.post('/', authRequired, (req, res) => {
 router.delete('/:id', authRequired, (req, res) => {
   const doc = db.prepare('SELECT * FROM documents WHERE id = ?').get(req.params.id);
   if (!doc) return res.status(404).json({ error: 'Не найдено' });
-  if (
-    req.user.role !== 'admin' &&
-    req.user.role !== 'teacher' &&
-    doc.created_by !== req.user.id
-  ) {
+  if (!userCan(req.user, 'office.documents') && doc.created_by !== req.user.id) {
     return res.status(403).json({ error: 'Нет прав' });
   }
   db.prepare('DELETE FROM documents WHERE id = ?').run(doc.id);

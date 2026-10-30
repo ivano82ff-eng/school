@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired, requirePermission } = require('../middleware/auth');
+const { notifyStudentParents } = require('../services/notify');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('office.payments')];
@@ -17,7 +18,22 @@ function enrich(p) {
   const group = p.group_id
     ? db.prepare('SELECT id, name FROM groups WHERE id = ?').get(p.group_id)
     : null;
-  return { ...p, contact, group };
+  const author = p.created_by
+    ? db.prepare('SELECT id, name, role FROM users WHERE id = ?').get(p.created_by)
+    : null;
+  const editor = p.updated_by
+    ? db.prepare('SELECT id, name, role FROM users WHERE id = ?').get(p.updated_by)
+    : null;
+  return { ...p, contact, group, author, editor };
+}
+
+function tellParents(contactId, body) {
+  notifyStudentParents(contactId, {
+    title: 'Оплата',
+    body,
+    link: '/parent',
+    type: 'payment',
+  });
 }
 
 router.get('/', ...staff, (req, res) => {
@@ -73,14 +89,24 @@ router.post('/', ...staff, (req, res) => {
 
   const info = db
     .prepare(
-      `INSERT INTO payments (contact_id, group_id, amount, currency, due_date, status, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO payments (contact_id, group_id, amount, currency, due_date, status, description, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(contact_id, group_id, Number(amount), currency, due_date, status, description);
+    .run(
+      contact_id,
+      group_id,
+      Number(amount),
+      currency,
+      due_date,
+      status,
+      description,
+      req.user.id,
+      req.user.id
+    );
 
-  res.status(201).json({
-    payment: enrich(db.prepare('SELECT * FROM payments WHERE id = ?').get(info.lastInsertRowid)),
-  });
+  const payment = enrich(db.prepare('SELECT * FROM payments WHERE id = ?').get(info.lastInsertRowid));
+  tellParents(contact.id, `${contact.name}: ${payment.amount} ${payment.currency}, ${payment.status}`);
+  res.status(201).json({ payment });
 });
 
 router.post('/:id/mark-paid', ...staff, (req, res) => {
@@ -88,12 +114,12 @@ router.post('/:id/mark-paid', ...staff, (req, res) => {
   if (!payment) return res.status(404).json({ error: 'Платёж не найден' });
 
   db.prepare(
-    `UPDATE payments SET status = 'paid', paid_at = datetime('now') WHERE id = ?`
-  ).run(payment.id);
+    `UPDATE payments SET status = 'paid', paid_at = datetime('now'), updated_by = ? WHERE id = ?`
+  ).run(req.user.id, payment.id);
 
-  res.json({
-    payment: enrich(db.prepare('SELECT * FROM payments WHERE id = ?').get(payment.id)),
-  });
+  const saved = enrich(db.prepare('SELECT * FROM payments WHERE id = ?').get(payment.id));
+  tellParents(payment.contact_id, `${saved.contact?.name || 'Ученик'}: оплачено ${saved.amount} ${saved.currency}`);
+  res.json({ payment: saved });
 });
 
 router.patch('/:id', ...staff, (req, res) => {
@@ -109,12 +135,12 @@ router.patch('/:id', ...staff, (req, res) => {
   } = req.body || {};
 
   db.prepare(
-    `UPDATE payments SET amount=?, due_date=?, description=?, status=?, group_id=? WHERE id=?`
-  ).run(amount, due_date, description, status, group_id, payment.id);
+    `UPDATE payments SET amount=?, due_date=?, description=?, status=?, group_id=?, updated_by=? WHERE id=?`
+  ).run(amount, due_date, description, status, group_id, req.user.id, payment.id);
 
-  res.json({
-    payment: enrich(db.prepare('SELECT * FROM payments WHERE id = ?').get(payment.id)),
-  });
+  const saved = enrich(db.prepare('SELECT * FROM payments WHERE id = ?').get(payment.id));
+  tellParents(payment.contact_id, `${saved.contact?.name || 'Ученик'}: ${saved.status}, ${saved.amount} ${saved.currency}`);
+  res.json({ payment: saved });
 });
 
 module.exports = router;

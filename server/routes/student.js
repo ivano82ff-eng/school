@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 const { maybeIssueCertificate } = require('../services/certificates');
 
 const router = express.Router();
@@ -155,7 +155,7 @@ router.get('/certificates/:id', authRequired, (req, res) => {
     )
     .get(req.params.id);
   if (!cert) return res.status(404).json({ error: 'Сертификат не найден' });
-  if (cert.user_id !== req.user.id && req.user.role !== 'admin' && req.user.role !== 'teacher') {
+  if (cert.user_id !== req.user.id && !userCan(req.user, 'content.teach')) {
     return res.status(403).json({ error: 'Нет доступа' });
   }
   res.json({ certificate: cert });

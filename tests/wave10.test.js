@@ -64,8 +64,10 @@ describe('wave10 analytics builder', () => {
     const { token } = await login('marketer@itscool.local', 'marketer123');
     const meta = await api('/api/analytics/meta', { token });
     assert.equal(meta.status, 200);
-    assert.ok(meta.data.presets.length >= 4);
-    assert.ok(meta.data.datasets.length >= 5);
+    assert.ok(meta.data.datasets.some((d) => d.code === 'landing_funnel'));
+    assert.ok(!meta.data.datasets.some((d) => d.code === 'revenue_by_status'));
+    assert.ok(meta.data.presets.some((p) => p.code === 'marketing_funnel'));
+    assert.ok(!meta.data.presets.some((p) => p.code === 'office_finance'));
   });
 
   it('runs funnel dataset and batch', async () => {

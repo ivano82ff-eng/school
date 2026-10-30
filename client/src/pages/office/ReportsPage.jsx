@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, Button, Card, Col, List, Row, Space, Statistic, Tag } from 'antd';
 import { api } from '../../api';
+import { useAuth } from '../../auth';
+import { can } from '../../permissions';
 
 function money(n) {
   return new Intl.NumberFormat('ru-RU', {
@@ -12,6 +14,7 @@ function money(n) {
 }
 
 export default function ReportsPage() {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
@@ -27,26 +30,34 @@ export default function ReportsPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Row gutter={[12, 12]}>
-        <Col xs={12} md={6}>
-          <Card>
-            <Statistic title="Оплачено всего" value={money(data.revenuePaid)} />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card>
-            <Statistic title="К оплате" value={money(data.revenueOpen)} />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card>
-            <Statistic title="Открытых заявок" value={data.openLeads} />
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card>
-            <Statistic title="ДЗ в работе" value={data.homeworkPending} />
-          </Card>
-        </Col>
+        {data.revenuePaid != null && (
+          <Col xs={12} md={6}>
+            <Card>
+              <Statistic title="Оплачено всего" value={money(data.revenuePaid)} />
+            </Card>
+          </Col>
+        )}
+        {data.revenueOpen != null && (
+          <Col xs={12} md={6}>
+            <Card>
+              <Statistic title="К оплате" value={money(data.revenueOpen)} />
+            </Card>
+          </Col>
+        )}
+        {data.openLeads != null && (
+          <Col xs={12} md={6}>
+            <Card>
+              <Statistic title="Открытых заявок" value={data.openLeads} />
+            </Card>
+          </Col>
+        )}
+        {data.homeworkPending != null && (
+          <Col xs={12} md={6}>
+            <Card>
+              <Statistic title="ДЗ в работе" value={data.homeworkPending} />
+            </Card>
+          </Col>
+        )}
       </Row>
 
       <Row gutter={[16, 16]}>
@@ -54,9 +65,11 @@ export default function ReportsPage() {
           <Card
             title="Неоплаченные счета"
             extra={
-              <Link to="/office/payments">
-                <Button size="small">К оплатам</Button>
-              </Link>
+              can(user, 'office.payments') ? (
+                <Link to="/office/payments">
+                  <Button size="small">К оплатам</Button>
+                </Link>
+              ) : null
             }
           >
             <List
@@ -74,6 +87,7 @@ export default function ReportsPage() {
             />
           </Card>
         </Col>
+        {data.lowAttendance != null && (
         <Col xs={24} md={12}>
           <Card
             title="Низкая посещаемость"
@@ -97,6 +111,7 @@ export default function ReportsPage() {
             />
           </Card>
         </Col>
+        )}
       </Row>
     </Space>
   );

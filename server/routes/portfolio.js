@@ -96,7 +96,8 @@ router.get('/:id', authRequired, (req, res) => {
 });
 
 router.post('/', authRequired, (req, res) => {
-  if (!['student', 'admin', 'teacher'].includes(req.user.role)) {
+  const staffEditor = userCan(req.user, 'content.teach', 'content.builder');
+  if (req.user.role !== 'student' && !staffEditor) {
     return res.status(403).json({ error: 'Портфолио создаёт ученик (или сотрудник от его имени)' });
   }
 
@@ -104,7 +105,7 @@ router.post('/', authRequired, (req, res) => {
   if (!title) return res.status(400).json({ error: 'Нужен title' });
 
   let user_id = req.user.id;
-  if ((req.user.role === 'admin' || req.user.role === 'teacher') && req.body?.user_id) {
+  if (staffEditor && req.body?.user_id) {
     user_id = Number(req.body.user_id);
   }
 

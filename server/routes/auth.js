@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authRequired, requirePermission, JWT_SECRET } = require('../middleware/auth');
 const { permissionsForRole, hasPermission } = require('../services/rbac');
+const { linkPortalContact } = require('../services/helpers');
 
 const router = express.Router();
 
@@ -62,16 +63,7 @@ router.post('/register', (req, res) => {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
 
     if (allowedRole === 'parent' || allowedRole === 'student') {
-      db.prepare(
-        `INSERT INTO contacts (type, name, email, grade, user_id)
-         VALUES (?, ?, ?, ?, ?)`
-      ).run(
-        allowedRole === 'parent' ? 'parent' : 'student',
-        user.name,
-        user.email,
-        user.grade,
-        user.id
-      );
+      linkPortalContact(user);
     }
 
     const token = jwt.sign(

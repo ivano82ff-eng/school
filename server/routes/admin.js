@@ -10,6 +10,7 @@ const {
   getRole,
   hasPermission,
 } = require('../services/rbac');
+const { linkPortalContact } = require('../services/helpers');
 
 const router = express.Router();
 
@@ -76,9 +77,7 @@ router.post('/users', requirePermission('admin.users', '*'), (req, res) => {
       .run(email, bcrypt.hashSync(password, 10), name, role, grade).lastInsertRowid;
 
     if (role === 'student' || role === 'parent') {
-      db.prepare(
-        `INSERT INTO contacts (type, name, email, grade, user_id) VALUES (?, ?, ?, ?, ?)`
-      ).run(role, name, email, grade, id);
+      linkPortalContact(db.prepare('SELECT * FROM users WHERE id = ?').get(id));
     }
 
     res.status(201).json({

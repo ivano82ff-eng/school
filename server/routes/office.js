@@ -1,10 +1,13 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/dashboard', authRequired, requirePermission('office.dashboard'), (_req, res) => {
+router.get('/dashboard', authRequired, requirePermission('office.dashboard'), (req, res) => {
+  const seeMoney = userCan(req.user, 'office.payments', 'office.reports');
+  const seeLeads = userCan(req.user, 'office.leads', 'marketing.analytics');
+  const seeSchedule = userCan(req.user, 'office.schedule');
   db.prepare(
     `UPDATE payments SET status = 'overdue'
      WHERE status = 'pending' AND date(due_date) < date('now')`
@@ -49,10 +52,18 @@ router.get('/dashboard', authRequired, requirePermission('office.dashboard'), (_
     .all();
 
   res.json({
-    stats: { students, parents, groups, overdue, pendingSum, leadsOpen },
-    upcoming,
-    recentPayments,
-    recentLeads,
+    stats: {
+      students,
+      parents,
+      groups,
+      overdue: seeMoney ? overdue : null,
+      pendingSum: seeMoney ? pendingSum : null,
+      leadsOpen: seeLeads ? leadsOpen : null,
+    },
+    upcoming: seeSchedule ? upcoming : [],
+    recentPayments: seeMoney ? recentPayments : [],
+    recentLeads: seeLeads ? recentLeads : [],
+    visibility: { payments: seeMoney, leads: seeLeads, schedule: seeSchedule },
   });
 });
 

@@ -1,7 +1,12 @@
 const express = require('express');
 const db = require('../db');
-const { authRequired, requirePermission } = require('../middleware/auth');
+const { authRequired, requirePermission, userCan } = require('../middleware/auth');
 const { notifyContactUser, notifyStudentParents } = require('../services/notify');
+const {
+  studentContactByUser,
+  parentContactByUser,
+  childrenContactIds,
+} = require('../services/diary');
 
 const router = express.Router();
 const staff = [authRequired, requirePermission('office.homework')];
@@ -32,17 +37,29 @@ router.get('/', ...staff, (req, res) => {
   res.json({ homework: db.prepare(sql).all(...params).map(enrichHomework) });
 });
 
+function submissionContactIds(user) {
+  if (userCan(user, 'office.homework')) return null;
+  if (user.role === 'student') {
+    const c = studentContactByUser(user.id);
+    return c ? [c.id] : [];
+  }
+  if (user.role === 'parent') {
+    const p = parentContactByUser(user.id);
+    return p ? childrenContactIds(p.id) : [];
+  }
+  return [];
+}
+
 router.get('/:id', authRequired, (req, res) => {
   const hw = db.prepare('SELECT * FROM homework WHERE id = ?').get(req.params.id);
   if (!hw) return res.status(404).json({ error: 'Задание не найдено' });
 
-  if (req.user.role === 'student' || req.user.role === 'parent') {
-    // allowed via submissions filtered below
-  } else if (!['admin', 'teacher'].includes(req.user.role)) {
+  const scope = submissionContactIds(req.user);
+  if (scope && !scope.length) {
     return res.status(403).json({ error: 'Недостаточно прав' });
   }
 
-  const submissions = db
+  let submissions = db
     .prepare(
       `SELECT hs.*, c.name as student_name
        FROM homework_submissions hs
@@ -51,6 +68,11 @@ router.get('/:id', authRequired, (req, res) => {
        ORDER BY c.name`
     )
     .all(hw.id);
+
+  if (scope) {
+    submissions = submissions.filter((s) => scope.includes(s.contact_id));
+    if (!submissions.length) return res.status(404).json({ error: 'Задание не найдено' });
+  }
 
   res.json({ homework: enrichHomework(hw), submissions });
 });
@@ -131,7 +153,7 @@ router.patch('/submissions/:id', authRequired, (req, res) => {
        SET answer = ?, status = 'submitted', submitted_at = datetime('now')
        WHERE id = ?`
     ).run(answer || '', sub.id);
-  } else if (req.user.role === 'teacher' || req.user.role === 'admin') {
+  } else if (userCan(req.user, 'office.homework')) {
     db.prepare(
       `UPDATE homework_submissions
        SET status = COALESCE(?, status),

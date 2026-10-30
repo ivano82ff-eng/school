@@ -12,6 +12,68 @@ function isParticipant(threadId, userId) {
     .get(threadId, userId);
 }
 
+function relatedContactIds(user) {
+  if (user.role === 'student') {
+    const c = db
+      .prepare(`SELECT id FROM contacts WHERE user_id = ? AND type = 'student'`)
+      .get(user.id);
+    return c ? [c.id] : [];
+  }
+  if (user.role === 'parent') {
+    const p = db
+      .prepare(`SELECT id FROM contacts WHERE user_id = ? AND type = 'parent'`)
+      .get(user.id);
+    if (!p) return [];
+    return db
+      .prepare(`SELECT student_id FROM contact_links WHERE parent_id = ?`)
+      .all(p.id)
+      .map((r) => r.student_id);
+  }
+  return [];
+}
+
+function canReadThread(user, threadId) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (isParticipant(threadId, user.id)) return true;
+  const ids = relatedContactIds(user);
+  if (!ids.length) return false;
+  const thread = db
+    .prepare('SELECT related_contact_id FROM message_threads WHERE id = ?')
+    .get(threadId);
+  return !!(thread && ids.includes(thread.related_contact_id));
+}
+
+function listThreadIds(user) {
+  if (user.role === 'admin') {
+    return db
+      .prepare(`SELECT id FROM message_threads ORDER BY updated_at DESC`)
+      .all()
+      .map((r) => r.id);
+  }
+  const ids = relatedContactIds(user);
+  if (ids.length) {
+    return db
+      .prepare(
+        `SELECT id FROM message_threads
+         WHERE related_contact_id IN (${ids.map(() => '?').join(',')})
+            OR id IN (SELECT thread_id FROM message_participants WHERE user_id = ?)
+         ORDER BY updated_at DESC`
+      )
+      .all(...ids, user.id)
+      .map((r) => r.id);
+  }
+  return db
+    .prepare(
+      `SELECT t.id FROM message_threads t
+       JOIN message_participants mp ON mp.thread_id = t.id
+       WHERE mp.user_id = ?
+       ORDER BY t.updated_at DESC`
+    )
+    .all(user.id)
+    .map((r) => r.id);
+}
+
 function threadSummary(threadId, userId) {
   const thread = db.prepare('SELECT * FROM message_threads WHERE id = ?').get(threadId);
   if (!thread) return null;
@@ -54,22 +116,13 @@ function threadSummary(threadId, userId) {
 }
 
 router.get('/threads', authRequired, (req, res) => {
-  const ids = db
-    .prepare(
-      `SELECT t.id FROM message_threads t
-       JOIN message_participants mp ON mp.thread_id = t.id
-       WHERE mp.user_id = ?
-       ORDER BY t.updated_at DESC`
-    )
-    .all(req.user.id)
-    .map((r) => r.id);
-
+  const ids = listThreadIds(req.user);
   res.json({ threads: ids.map((id) => threadSummary(id, req.user.id)) });
 });
 
 router.get('/threads/:id', authRequired, (req, res) => {
   const id = Number(req.params.id);
-  if (!isParticipant(id, req.user.id) && req.user.role !== 'admin') {
+  if (!canReadThread(req.user, id)) {
     return res.status(403).json({ error: 'Нет доступа к переписке' });
   }
 
@@ -107,20 +160,30 @@ router.post('/threads', authRequired, (req, res) => {
   let relatedContactId = req.body?.contactId ? Number(req.body.contactId) : null;
   const groupId = req.body?.groupId ? Number(req.body.groupId) : null;
 
-  // Students/parents can only open a thread with teaching/office staff
+  // Students and parents write to teaching staff, and the thread stays on the child.
   if (req.user.role === 'student' || req.user.role === 'parent') {
-    const staffUsers = db
+    participantIds = db
       .prepare(
-        `SELECT id FROM users
-         WHERE active = 1 AND role NOT IN ('student', 'parent')`
+        `SELECT id FROM users WHERE active = 1 AND role IN ('teacher', 'admin', 'methodist')`
       )
       .all()
       .map((u) => u.id);
-    participantIds = staffUsers;
-    const contact = db
-      .prepare(`SELECT id FROM contacts WHERE user_id = ?`)
-      .get(req.user.id);
-    relatedContactId = contact?.id || null;
+    if (req.user.role === 'student') {
+      const contact = db
+        .prepare(`SELECT id FROM contacts WHERE user_id = ? AND type = 'student'`)
+        .get(req.user.id);
+      relatedContactId = contact?.id || null;
+    } else {
+      const parent = db
+        .prepare(`SELECT id FROM contacts WHERE user_id = ? AND type = 'parent'`)
+        .get(req.user.id);
+      const kids = parent ? relatedContactIds(req.user) : [];
+      relatedContactId = kids[0] || parent?.id || null;
+      for (const kidId of kids) {
+        const child = db.prepare('SELECT user_id FROM contacts WHERE id = ?').get(kidId);
+        if (child?.user_id) participantIds.push(child.user_id);
+      }
+    }
   } else if (relatedContactId) {
     const contact = db.prepare('SELECT user_id FROM contacts WHERE id = ?').get(relatedContactId);
     if (contact?.user_id) participantIds.push(contact.user_id);
@@ -167,7 +230,7 @@ router.post('/threads', authRequired, (req, res) => {
 
 router.post('/threads/:id/messages', authRequired, (req, res) => {
   const id = Number(req.params.id);
-  if (!isParticipant(id, req.user.id) && req.user.role !== 'admin') {
+  if (!canReadThread(req.user, id)) {
     return res.status(403).json({ error: 'Нет доступа' });
   }
 
