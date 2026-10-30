@@ -60,8 +60,8 @@ after(async () => {
 });
 
 describe('wave9 marketing landings', () => {
-  it('marketer lists landings and opens builder', async () => {
-    const { token, user } = await login('marketer@itscool.local', 'marketer123');
+  it('teacher lists landings and opens builder', async () => {
+    const { token, user } = await login('teacher@itscool.local', 'teacher123');
     assert.ok(user.permissions.includes('marketing.landings'));
     const list = await api('/api/landings', { token });
     assert.equal(list.status, 200);
@@ -99,7 +99,7 @@ describe('wave9 marketing landings', () => {
     });
     assert.equal(lead.status, 201, lead.data.error);
 
-    const { token } = await login('marketer@itscool.local', 'marketer123');
+    const { token } = await login('teacher@itscool.local', 'teacher123');
     const crm = await api('/api/leads?q=Марк', { token });
     assert.equal(crm.status, 200);
     const row = crm.data.leads.find((l) => l.name === 'Марк Родитель');

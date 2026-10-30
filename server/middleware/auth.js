@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { permissionsForRole, hasPermission } = require('../services/rbac');
+const { permissionsForRole, hasPermission, isLiveRole } = require('../services/rbac');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'it-scool-secret-change-me-on-host';
 
@@ -11,6 +11,9 @@ function authRequired(req, res, next) {
   }
   try {
     const payload = jwt.verify(token, JWT_SECRET);
+    if (!isLiveRole(payload.role)) {
+      return res.status(403).json({ error: 'Эта роль отключена' });
+    }
     req.user = payload;
     req.user.permissions = permissionsForRole(payload.role);
     next();

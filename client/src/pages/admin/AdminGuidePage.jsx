@@ -52,7 +52,7 @@ const MODULES = [
     children: (
       <div>
         <Paragraph>
-          Преподаватель и методист собирают курсы из блоков-виджетов (как конструктор страниц).
+          Преподаватель собирает курсы из блоков-виджетов (как конструктор страниц).
         </Paragraph>
         <ul>
           <li>
@@ -193,19 +193,17 @@ const MODULES = [
     children: (
       <div>
         <Paragraph>
-          Гибкие роли и права: можно создать свою роль и включить только нужные разделы.
+          Работают четыре роли: администратор, преподаватель, ученик и родитель. Остальные записи
+          ролей остаются в базе, но отключены: их нельзя назначить и под ними нельзя войти.
         </Paragraph>
         <ul>
           <li>
             <Text code>/admin/users</Text> — люди, роли, пароль, блокировка
           </li>
           <li>
-            <Text code>/admin/roles</Text> — права и видимость модулей
+            <Text code>/admin/roles</Text> — права действующих ролей
           </li>
-          <li>
-            Роли из коробки: admin, teacher, methodist, accountant, hr, analyst, marketer, student,
-            parent
-          </li>
+          <li>Роли для входа: admin, teacher, student, parent</li>
         </ul>
       </div>
     ),
@@ -218,19 +216,6 @@ const ROLE_ROWS = [
     role: 'Преподаватель',
     where: '/office, /teacher, /diary',
     how: 'Обучение + офис + конструктор курсов',
-  },
-  {
-    role: 'Методист',
-    where: '/teacher/builder, материалы, дневник',
-    how: 'Контент без финансов CRM',
-  },
-  { role: 'Бухгалтер', where: '/office/payments, отчёты', how: 'Оплаты и сводки' },
-  { role: 'HR', where: '/admin/users, контакты, группы', how: 'Люди и оргструктура' },
-  { role: 'Аналитик', where: '/office/analytics, отчёты', how: 'Дашборды и экспорт' },
-  {
-    role: 'Рекламщик',
-    where: '/office/landings, CRM, пробные',
-    how: 'Лендинги, заявки, акции',
   },
   { role: 'Ученик', where: '/dashboard, /courses, /diary', how: 'Учёба и портфолио' },
   { role: 'Родитель', where: '/parent, /diary, /messages', how: 'Контроль ребёнка' },
@@ -301,12 +286,12 @@ const FAQ = [
   },
   {
     key: 'rights',
-    label: 'Как дать маркетологу доступ только к лендингам?',
+    label: 'Кто ведёт лендинги?',
     children: (
       <Paragraph>
-        Роль <Text code>marketer</Text> уже так настроена. Для кастомной роли: Админ → Роли →
-        включите <Text code>marketing.landings</Text>, <Text code>office.leads</Text> и при
-        необходимости <Text code>marketing.analytics</Text>, без платежей и админки.
+        Отдельная роль маркетолога отключена. Лендинги и CRM открыты администратору и
+        преподавателю — у них уже есть <Text code>marketing.landings</Text> и{' '}
+        <Text code>office.leads</Text>.
       </Paragraph>
     ),
   },
@@ -383,7 +368,7 @@ export default function AdminGuidePage() {
             {
               children: (
                 <>
-                  Маркетологу отдайте <Link to="/office/landings">Лендинги</Link>; аналитику смотрите в{' '}
+                  Лендинги — в <Link to="/office/landings">Лендинги</Link>, сводка — в{' '}
                   <Link to="/office/analytics">Аналитика</Link>
                 </>
               ),

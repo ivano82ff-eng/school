@@ -6,17 +6,13 @@ import {
   Card,
   Checkbox,
   Col,
-  Form,
   Input,
-  Modal,
   Row,
-  Select,
   Space,
   Switch,
   Typography,
   message,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
 import { can } from '../../permissions';
@@ -40,8 +36,6 @@ export default function AdminRolesPage() {
   const [permissions, setPermissions] = useState([]);
   const [roleEdit, setRoleEdit] = useState(null);
   const [error, setError] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [roleForm] = Form.useForm();
 
   async function loadRolesFull() {
     const data = await api('/admin/roles');
@@ -56,8 +50,11 @@ export default function AdminRolesPage() {
       .then((list) => {
         if (code) {
           const found = list.find((r) => r.code === code);
-          if (found) {
+          if (found?.live) {
             setRoleEdit({ ...found, permissions: [...(found.permissions || [])] });
+          } else if (found) {
+            setError('Эта роль отключена и не назначается');
+            setRoleEdit(null);
           } else {
             setError(`Роль «${code}» не найдена`);
             setRoleEdit(null);
@@ -102,42 +99,16 @@ export default function AdminRolesPage() {
     }
   }
 
-  async function createRole(values) {
-    try {
-      const created = await api('/admin/roles', {
-        method: 'POST',
-        body: JSON.stringify(values),
-      });
-      message.success('Роль создана');
-      setCreateOpen(false);
-      roleForm.resetFields();
-      await loadRolesFull();
-      navigate(`/admin/roles/${created.role.code}`);
-    } catch (e) {
-      message.error(e.message);
-    }
-  }
+  const visibleRoles = roles.filter((r) => r.live);
 
   return (
     <>
       {error && <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />}
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
-          <Card
-            title="Роли"
-            extra={
-              <Button
-                type="primary"
-                size="small"
-                icon={<PlusOutlined />}
-                onClick={() => setCreateOpen(true)}
-              >
-                Создать
-              </Button>
-            }
-          >
+          <Card title="Роли">
             <Space direction="vertical" style={{ width: '100%' }}>
-              {roles.map((r) => (
+              {visibleRoles.map((r) => (
                 <Button
                   key={r.code}
                   block
@@ -159,10 +130,9 @@ export default function AdminRolesPage() {
                 <Space>
                   <Switch
                     checked={roleEdit.active !== 0}
-                    disabled={roleEdit.code === 'admin'}
+                    disabled
                     checkedChildren="вкл"
                     unCheckedChildren="выкл"
-                    onChange={(v) => setRoleEdit({ ...roleEdit, active: v ? 1 : 0 })}
                   />
                   <Button type="primary" onClick={saveRolePerms}>
                     Сохранить
@@ -216,47 +186,14 @@ export default function AdminRolesPage() {
             </Card>
           ) : (
             <Card>
-              <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-                Выберите роль слева или создайте новую. После создания откроется страница правки.
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                Выберите роль слева. Сейчас работают администратор, преподаватель, ученик и
+                родитель.
               </Typography.Paragraph>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-                Создать роль
-              </Button>
             </Card>
           )}
         </Col>
       </Row>
-
-      <Modal
-        title="Новая роль"
-        open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        onOk={() => roleForm.submit()}
-        destroyOnClose
-        okText="Создать"
-      >
-        <Form form={roleForm} layout="vertical" onFinish={createRole}>
-          <Form.Item name="code" label="Код (латиница)" rules={[{ required: true }]}>
-            <Input placeholder="curator" />
-          </Form.Item>
-          <Form.Item name="name" label="Название" rules={[{ required: true }]}>
-            <Input placeholder="Куратор" />
-          </Form.Item>
-          <Form.Item name="description" label="Описание">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-          <Form.Item name="permissions" label="Права">
-            <Select
-              mode="multiple"
-              options={permissions.map((p) => ({
-                value: p.code,
-                label: `${p.name} (${p.code})`,
-              }))}
-              optionFilterProp="label"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </>
   );
 }

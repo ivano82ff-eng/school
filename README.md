@@ -134,14 +134,11 @@ npm test
 | Ученик          | student@itscool.local      | student123     |
 | Родитель        | parent@itscool.local       | parent123      |
 | Преподаватель   | teacher@itscool.local      | teacher123     |
-| Методист        | methodist@itscool.local    | methodist123   |
-| Бухгалтер       | accountant@itscool.local   | accountant123  |
-| HR              | hr@itscool.local           | hr1234         |
-| Аналитик        | analyst@itscool.local      | analyst123     |
-| Рекламщик       | marketer@itscool.local     | marketer123    |
 | Админ           | admin@itscool.local        | admin123       |
 
-Админ (и HR с правом `admin.users`) управляет людьми и ролями:
+Роли methodist, accountant, hr, analyst и marketer остаются в базе вместе с демо-пользователями, но отключены: их нельзя назначить и под ними нельзя войти.
+
+Админ управляет людьми и действующими ролями:
 - `/admin/guide` — гид по платформе (только роль admin): MVP, карта модулей, FAQ, стратегия
 - `/admin/users` — люди (создание, роль, блокировка)
 - `/admin/roles` — список ролей и создание
@@ -156,7 +153,7 @@ API: `GET/POST /api/admin/roles`, `PATCH /api/admin/roles/:code`, `GET/POST/PATC
 - `/office/landings/:id/analytics` — просмотры, лиды, конверсия, события
 - Публично: `/l/python-leto` (демо после seed)
 
-Демо: `marketer@itscool.local` / `marketer123`
+Лендинги открыты администратору и преподавателю.
 
 ### Аналитика и отчёты
 
@@ -164,7 +161,7 @@ API: `GET/POST /api/admin/roles`, `PATCH /api/admin/roles/:code`, `GET/POST/PATC
 - Экспорт: **HTML, PDF, PPTX, CSV, JSON**
 - Аналитика лендинга `/office/landings/:id/analytics` — графики + быстрый экспорт
 
-Права: `office.reports` или `marketing.analytics` (маркетолог, аналитик, админ, преподаватель).
+Права: `office.reports` или `marketing.analytics` (админ, преподаватель).
 
 Повторный `npm run seed` **очищает** базу и заливает демо-данные заново (права ролей сбрасываются к значениям по умолчанию).
 

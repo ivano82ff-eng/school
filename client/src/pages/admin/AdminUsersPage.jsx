@@ -52,9 +52,22 @@ export default function AdminUsersPage() {
   }, [allowed]);
 
   const roleOptions = useMemo(
-    () => roles.filter((r) => r.active !== 0).map((r) => ({ value: r.code, label: r.name })),
+    () =>
+      roles
+        .filter((r) => r.live && r.active !== 0)
+        .map((r) => ({ value: r.code, label: r.name })),
     [roles]
   );
+
+  const editRoleOptions = useMemo(() => {
+    const current = userModal?.role;
+    if (!current || roleOptions.some((o) => o.value === current)) return roleOptions;
+    const meta = roles.find((r) => r.code === current);
+    return [
+      ...roleOptions,
+      { value: current, label: `${meta?.name || current} (отключена)`, disabled: true },
+    ];
+  }, [roleOptions, roles, userModal]);
 
   if (!allowed) return <Navigate to="/admin/roles" replace />;
 
@@ -180,7 +193,7 @@ export default function AdminUsersPage() {
             <Input />
           </Form.Item>
           <Form.Item name="role" label="Роль" rules={[{ required: true }]}>
-            <Select options={roleOptions} />
+            <Select options={editRoleOptions} />
           </Form.Item>
           <Form.Item name="grade" label="Класс (для ученика)">
             <InputNumber min={1} max={11} style={{ width: '100%' }} />

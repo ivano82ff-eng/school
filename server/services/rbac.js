@@ -37,6 +37,13 @@ const PERMISSIONS = [
   ['student.learn', 'Обучение', 'portal', 'Кабинет ученика'],
 ];
 
+/** Roles that can sign in and be assigned. Other rows stay in the database. */
+const LIVE_ROLES = ['admin', 'teacher', 'student', 'parent'];
+
+function isLiveRole(code) {
+  return LIVE_ROLES.includes(code);
+}
+
 const ROLE_DEFS = [
   ['admin', 'Администратор', 'Полный контроль платформы', 1],
   ['teacher', 'Преподаватель', 'Обучение, офис, дневник', 1],
@@ -248,6 +255,12 @@ function migrateUsersRoleConstraint() {
   }
 }
 
+function freezeUnusedRoles() {
+  db.prepare(
+    `UPDATE roles SET active = 0 WHERE code NOT IN (${LIVE_ROLES.map(() => '?').join(',')})`
+  ).run(...LIVE_ROLES);
+}
+
 function initRbac() {
   ensureRbacTables();
   migrateUsersRoleConstraint();
@@ -261,12 +274,15 @@ function initRbac() {
     grant.run(role, 'marketing.analytics');
   }
   grant.run('analyst', 'marketing.analytics');
+  freezeUnusedRoles();
 }
 
 module.exports = {
   PERMISSIONS,
   ROLE_DEFS,
   ROLE_PERMS,
+  LIVE_ROLES,
+  isLiveRole,
   initRbac,
   seedRbacDefaults,
   getRole,

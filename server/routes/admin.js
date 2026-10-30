@@ -9,6 +9,7 @@ const {
   setRolePermissions,
   getRole,
   hasPermission,
+  isLiveRole,
 } = require('../services/rbac');
 const { linkPortalContact } = require('../services/helpers');
 
@@ -30,9 +31,13 @@ function publicUser(row) {
   };
 }
 
+function withLive(role) {
+  return role ? { ...role, live: isLiveRole(role.code) } : role;
+}
+
 router.get('/bootstrap', requirePermission('admin.users', 'admin.roles', '*'), (_req, res) => {
   res.json({
-    roles: listAllRoles(),
+    roles: listAllRoles().map(withLive),
     permissions: listPermissions(),
   });
 });
@@ -66,6 +71,9 @@ router.post('/users', requirePermission('admin.users', '*'), (req, res) => {
     return res.status(400).json({ error: 'Нужны email, name, password' });
   }
   if (!getRole(role)) return res.status(400).json({ error: 'Неизвестная роль' });
+  if (!isLiveRole(role)) {
+    return res.status(400).json({ error: 'Эта роль отключена и не назначается' });
+  }
   if (password.length < 4) return res.status(400).json({ error: 'Пароль слишком короткий' });
 
   try {
@@ -104,6 +112,9 @@ router.patch('/users/:id', requirePermission('admin.users', '*'), (req, res) => 
     req.body.active !== undefined ? (req.body.active ? 1 : 0) : user.active !== 0 ? 1 : 0;
 
   if (!getRole(role)) return res.status(400).json({ error: 'Неизвестная роль' });
+  if (role !== user.role && !isLiveRole(role)) {
+    return res.status(400).json({ error: 'Эта роль отключена и не назначается' });
+  }
   if (user.role === 'admin' && role !== 'admin' && user.id === req.user.id) {
     return res.status(400).json({ error: 'Нельзя снять с себя роль admin' });
   }
@@ -134,7 +145,7 @@ router.patch('/users/:id', requirePermission('admin.users', '*'), (req, res) => 
 
 router.get('/roles', requirePermission('admin.roles', 'admin.users', '*'), (_req, res) => {
   const roles = listAllRoles().map((r) => ({
-    ...r,
+    ...withLive(r),
     permissions: permissionsForRole(r.code),
   }));
   res.json({ roles, permissions: listPermissions() });
@@ -152,7 +163,7 @@ router.post('/roles', requirePermission('admin.roles', '*'), (req, res) => {
   try {
     db.prepare(
       `INSERT INTO roles (code, name, description, is_system, active, sort_order)
-       VALUES (?, ?, ?, 0, 1, 100)`
+       VALUES (?, ?, ?, 0, 0, 100)`
     ).run(code, name, description);
   } catch {
     return res.status(400).json({ error: 'Роль с таким code уже есть' });
@@ -162,7 +173,7 @@ router.post('/roles', requirePermission('admin.roles', '*'), (req, res) => {
   if (perms.length) setRolePermissions(code, perms);
 
   res.status(201).json({
-    role: { ...getRole(code), permissions: permissionsForRole(code) },
+    role: { ...withLive(getRole(code)), permissions: permissionsForRole(code) },
   });
 });
 
@@ -176,8 +187,11 @@ router.patch('/roles/:code', requirePermission('admin.roles', '*'), (req, res) =
   const active =
     req.body.active !== undefined ? (req.body.active ? 1 : 0) : role.active;
 
-  if (role.code === 'admin' && active === 0) {
-    return res.status(400).json({ error: 'Нельзя отключить роль admin' });
+  if (isLiveRole(role.code) && active === 0) {
+    return res.status(400).json({ error: 'Эту роль нельзя отключить' });
+  }
+  if (!isLiveRole(role.code) && active === 1) {
+    return res.status(400).json({ error: 'Эта роль отключена и не назначается' });
   }
 
   db.prepare(`UPDATE roles SET name=?, description=?, active=? WHERE code=?`).run(
@@ -195,7 +209,7 @@ router.patch('/roles/:code', requirePermission('admin.roles', '*'), (req, res) =
   }
 
   res.json({
-    role: { ...getRole(role.code), permissions: permissionsForRole(role.code) },
+    role: { ...withLive(getRole(role.code)), permissions: permissionsForRole(role.code) },
   });
 });
 

@@ -69,34 +69,36 @@ describe('wave8 rbac', () => {
     assert.ok(data.users.length >= 8);
   });
 
-  it('accountant can open payments but not course builder', async () => {
-    const { token, user } = await login('accountant@itscool.local', 'accountant123');
-    assert.ok(user.permissions.includes('office.payments'));
-    assert.equal(user.permissions.includes('content.builder'), false);
+  it('frozen roles stay in the database but cannot sign in', async () => {
+    const { hasPermission } = require('../server/services/rbac');
+    assert.equal(hasPermission('accountant', 'office.payments'), true);
+    assert.equal(hasPermission('accountant', 'content.builder'), false);
+    assert.equal(hasPermission('marketer', 'office.leads'), true);
+    assert.equal(hasPermission('marketer', 'office.payments'), false);
 
-    const pay = await api('/api/payments', { token });
-    assert.equal(pay.status, 200);
-
-    const builder = await api('/api/builder/courses/1', {
-      method: 'PATCH',
-      token,
-      body: { title: 'hack' },
-    });
-    assert.equal(builder.status, 403);
+    const { token } = await login('admin@itscool.local', 'admin123');
+    const listed = await api('/api/admin/users', { token });
+    const frozen = [
+      ['methodist@itscool.local', 'methodist123'],
+      ['accountant@itscool.local', 'accountant123'],
+      ['hr@itscool.local', 'hr1234'],
+      ['analyst@itscool.local', 'analyst123'],
+      ['marketer@itscool.local', 'marketer123'],
+    ];
+    for (const [email, password] of frozen) {
+      assert.ok(listed.data.users.some((u) => u.email === email));
+      const denied = await api('/api/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      });
+      assert.equal(denied.status, 403);
+    }
   });
 
-  it('marketer can access leads, not payments', async () => {
-    const { token } = await login('marketer@itscool.local', 'marketer123');
-    const leads = await api('/api/leads', { token });
-    assert.equal(leads.status, 200);
-    const pay = await api('/api/payments', { token });
-    assert.equal(pay.status, 403);
-  });
-
-  it('hr can create a user with methodist role', async () => {
-    const { token } = await login('hr@itscool.local', 'hr1234');
+  it('admin cannot assign a frozen role and can assign teacher', async () => {
+    const { token } = await login('admin@itscool.local', 'admin123');
     const email = `curator-${Date.now()}@itscool.local`;
-    const created = await api('/api/admin/users', {
+    const frozen = await api('/api/admin/users', {
       method: 'POST',
       token,
       body: {
@@ -106,8 +108,20 @@ describe('wave8 rbac', () => {
         role: 'methodist',
       },
     });
+    assert.equal(frozen.status, 400);
+
+    const created = await api('/api/admin/users', {
+      method: 'POST',
+      token,
+      body: {
+        email,
+        name: 'Тест Куратор',
+        password: 'test1234',
+        role: 'teacher',
+      },
+    });
     assert.equal(created.status, 201, created.data.error);
-    assert.equal(created.data.user.role, 'methodist');
+    assert.equal(created.data.user.role, 'teacher');
   });
 
   it('admin can tweak role permissions', async () => {
@@ -124,6 +138,14 @@ describe('wave8 rbac', () => {
     });
     assert.equal(patched.status, 200);
     assert.ok(patched.data.role.permissions.includes('office.leads'));
+    assert.equal(patched.data.role.live, false);
+
+    const turnedOn = await api('/api/admin/roles/analyst', {
+      method: 'PATCH',
+      token,
+      body: { active: true },
+    });
+    assert.equal(turnedOn.status, 400);
   });
 
   it('inactive user cannot login', async () => {

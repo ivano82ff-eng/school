@@ -60,18 +60,27 @@ after(async () => {
 });
 
 describe('wave10 analytics builder', () => {
+  it('keeps the frozen marketer dataset split in the model', () => {
+    const { datasetsFor, presetsFor } = require('../server/services/analyticsDatasets');
+    const codes = datasetsFor('marketer').map((d) => d.code);
+    assert.ok(codes.includes('landing_funnel'));
+    assert.ok(!codes.includes('revenue_by_status'));
+    const presets = presetsFor('marketer').map((p) => p.code);
+    assert.ok(presets.includes('marketing_funnel'));
+    assert.ok(!presets.includes('office_finance'));
+  });
+
   it('returns meta presets and datasets', async () => {
-    const { token } = await login('marketer@itscool.local', 'marketer123');
+    const { token } = await login('teacher@itscool.local', 'teacher123');
     const meta = await api('/api/analytics/meta', { token });
     assert.equal(meta.status, 200);
     assert.ok(meta.data.datasets.some((d) => d.code === 'landing_funnel'));
-    assert.ok(!meta.data.datasets.some((d) => d.code === 'revenue_by_status'));
+    assert.ok(meta.data.datasets.some((d) => d.code === 'revenue_by_status'));
     assert.ok(meta.data.presets.some((p) => p.code === 'marketing_funnel'));
-    assert.ok(!meta.data.presets.some((p) => p.code === 'office_finance'));
   });
 
   it('runs funnel dataset and batch', async () => {
-    const { token } = await login('analyst@itscool.local', 'analyst123');
+    const { token } = await login('teacher@itscool.local', 'teacher123');
     const funnel = await api('/api/analytics/dataset/landing_funnel', { token });
     assert.equal(funnel.status, 200);
     assert.ok(funnel.data.series.length >= 3);
@@ -86,7 +95,7 @@ describe('wave10 analytics builder', () => {
   });
 
   it('creates and updates a report board', async () => {
-    const { token } = await login('marketer@itscool.local', 'marketer123');
+    const { token } = await login('teacher@itscool.local', 'teacher123');
     const created = await api('/api/analytics/boards', {
       method: 'POST',
       token,

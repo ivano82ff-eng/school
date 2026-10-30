@@ -1249,16 +1249,12 @@ if (pythonCourse?.id) {
 })();
 
 console.log('База заполнена.');
-console.log('Аккаунты:');
+console.log('Аккаунты (вход):');
 console.log('  admin@itscool.local / admin123');
 console.log('  teacher@itscool.local / teacher123');
-console.log('  methodist@itscool.local / methodist123');
-console.log('  accountant@itscool.local / accountant123');
-console.log('  hr@itscool.local / hr1234');
-console.log('  analyst@itscool.local / analyst123');
-console.log('  marketer@itscool.local / marketer123');
 console.log('  student@itscool.local / student123');
 console.log('  parent@itscool.local / parent123');
+console.log('В базе, вход отключён: methodist, accountant, hr, analyst, marketer');
 console.log(`Курсов: ${courses.length}, admin id=${adminId}`);
 console.log('Wave9: лендинги /office/landings · публично /l/python-leto');
 console.log('Wave10: аналитика /office/analytics · экспорт HTML/PDF/PPTX');

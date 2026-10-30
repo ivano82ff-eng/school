@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authRequired, requirePermission, JWT_SECRET } = require('../middleware/auth');
-const { permissionsForRole, hasPermission } = require('../services/rbac');
+const { permissionsForRole, hasPermission, isLiveRole } = require('../services/rbac');
 const { linkPortalContact } = require('../services/helpers');
 
 const router = express.Router();
@@ -91,6 +91,9 @@ router.post('/login', (req, res) => {
   }
   if (user.active === 0) {
     return res.status(403).json({ error: 'Аккаунт отключён. Обратитесь к администратору' });
+  }
+  if (!isLiveRole(user.role)) {
+    return res.status(403).json({ error: 'Эта роль отключена' });
   }
   const token = jwt.sign(
     { id: user.id, role: user.role, name: user.name },
