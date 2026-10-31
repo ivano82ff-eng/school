@@ -162,4 +162,46 @@ describe('personal cabinets', () => {
     });
     assert.equal(accountant.status, 403);
   });
+
+  it('lets a student message the school or one teacher, without documents', async () => {
+    const student = await login('student@itscool.local', 'student123');
+    assert.equal(student.user.permissions.includes('documents.access'), false);
+    const docs = await api('/api/documents', { token: student.token });
+    assert.equal(docs.status, 403);
+
+    const parent = await login('parent@itscool.local', 'parent123');
+    const parentDocs = await api('/api/documents', { token: parent.token });
+    assert.equal(parentDocs.status, 200);
+
+    const teachers = await api('/api/messages/teachers', { token: student.token });
+    assert.equal(teachers.status, 200, teachers.data.error);
+    const anna = teachers.data.teachers.find((item) => item.name.includes('Анна'));
+    assert.ok(anna);
+
+    const school = await api('/api/messages/threads', {
+      method: 'POST',
+      token: student.token,
+      body: { subject: 'Вопрос школе', body: 'Можно перенести занятие?' },
+    });
+    assert.equal(school.status, 201, school.data.error);
+    const schoolRoles = school.data.thread.participants.map((person) => person.role);
+    assert.ok(schoolRoles.includes('teacher'));
+    assert.ok(schoolRoles.includes('admin'));
+
+    const direct = await api('/api/messages/threads', {
+      method: 'POST',
+      token: student.token,
+      body: { subject: 'Лично Анне', body: 'Не понял задачу', teacherId: anna.id },
+    });
+    assert.equal(direct.status, 201, direct.data.error);
+    const people = direct.data.thread.participants;
+    assert.equal(people.length, 2);
+    assert.ok(people.some((person) => person.role === 'student'));
+    assert.ok(people.some((person) => person.id === anna.id && person.role === 'teacher'));
+
+    const dash = await api('/api/student/dashboard', { token: student.token });
+    assert.equal(dash.status, 200);
+    assert.ok(dash.data.materials.length >= 1);
+    assert.ok(Array.isArray(dash.data.attendance));
+  });
 });

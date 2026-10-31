@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Form, Input, Select, Space, Table, Typography, message } from 'antd';
+import { Alert, Button, Card, Form, Input, Select, Table, Typography, message } from 'antd';
 import { api } from '../api';
 
 export default function TeacherClassPanel({ courses }) {
@@ -119,8 +119,8 @@ export default function TeacherClassPanel({ courses }) {
   ];
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Card title="Класс">
+    <>
+      <Card className="cabinet-card" title="Класс">
         <Typography.Paragraph type="secondary">
           Одно сообщение ученику или всему курсу, и оценки по всем заданиям курса.
         </Typography.Paragraph>
@@ -137,7 +137,7 @@ export default function TeacherClassPanel({ courses }) {
       {error && <Alert type="error" showIcon message={error} />}
       {sheet && (
         <>
-          <Card title="Написать одному ученику">
+          <Card className="cabinet-card" title="Написать одному ученику">
             <Form form={directForm} layout="vertical" onFinish={sendDirect}>
               <Form.Item name="contact_id" label="Ученик" rules={[{ required: true, message: 'Выберите ученика' }]}>
                 <Select
@@ -155,7 +155,7 @@ export default function TeacherClassPanel({ courses }) {
               </Button>
             </Form>
           </Card>
-          <Card title="Сообщение всему курсу">
+          <Card className="cabinet-card" title="Сообщение всему курсу">
             <Typography.Paragraph type="secondary">
               Один текст уходит каждому ученику курса отдельной перепиской.
             </Typography.Paragraph>
@@ -172,6 +172,7 @@ export default function TeacherClassPanel({ courses }) {
             </Form>
           </Card>
           <Card
+            className="cabinet-card"
             title="Оценки курса"
             extra={
               <Button type="primary" onClick={saveGrades}>
@@ -189,6 +190,6 @@ export default function TeacherClassPanel({ courses }) {
           </Card>
         </>
       )}
-    </Space>
+    </>
   );
 }

@@ -146,6 +146,13 @@ router.get('/threads/:id', authRequired, (req, res) => {
   res.json({ thread: summary, messages });
 });
 
+router.get('/teachers', authRequired, requirePermission('messages.access'), (_req, res) => {
+  const teachers = db
+    .prepare(`SELECT id, name FROM users WHERE active = 1 AND role = 'teacher' ORDER BY name`)
+    .all();
+  res.json({ teachers });
+});
+
 router.post('/threads', authRequired, (req, res) => {
   const subject = (req.body?.subject || '').trim();
   const body = (req.body?.body || '').trim();
@@ -160,8 +167,18 @@ router.post('/threads', authRequired, (req, res) => {
   let relatedContactId = req.body?.contactId ? Number(req.body.contactId) : null;
   const groupId = req.body?.groupId ? Number(req.body.groupId) : null;
 
-  // Students and parents write to teaching staff, and the thread stays on the child.
-  if (req.user.role === 'student' || req.user.role === 'parent') {
+  // A chosen teacher is a private thread. Otherwise students and parents write to the school.
+  if (req.user.role === 'student' && req.body?.teacherId) {
+    const teacher = db
+      .prepare(`SELECT id FROM users WHERE id = ? AND active = 1 AND role = 'teacher'`)
+      .get(Number(req.body.teacherId));
+    if (!teacher) return res.status(400).json({ error: 'Выберите преподавателя' });
+    participantIds = [teacher.id];
+    const contact = db
+      .prepare(`SELECT id FROM contacts WHERE user_id = ? AND type = 'student'`)
+      .get(req.user.id);
+    relatedContactId = contact?.id || null;
+  } else if (req.user.role === 'student' || req.user.role === 'parent') {
     participantIds = db
       .prepare(
         `SELECT id FROM users WHERE active = 1 AND role IN ('teacher', 'admin')`

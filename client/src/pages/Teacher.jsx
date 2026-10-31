@@ -18,6 +18,7 @@ import {
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { can, flag } from '../permissions';
+import { CabinetGrid, CabinetShell } from '../components/CabinetShell';
 import TeacherClassPanel from './TeacherClassPanel';
 
 export default function Teacher() {
@@ -71,15 +72,11 @@ export default function Teacher() {
   }
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <div>
-        <h2 style={{ marginBottom: 4 }}>Кабинет преподавателя</h2>
-        <p style={{ color: 'var(--color-text-secondary)' }}>
-          Соберите курс из уроков, проверочных и материалов на одном экране.
-        </p>
-      </div>
-
-      <Card size="small">
+    <CabinetShell
+      title="Кабинет преподавателя"
+      subtitle="Соберите курс из уроков, проверочных и материалов на одном экране."
+    >
+      <Card className="cabinet-card" title="Конструктор">
         <Space direction="vertical">
           <Typography.Text>
             Новый курс собирается из блоков. Готовый курс, его уроки, проверочные и материалы
@@ -95,7 +92,7 @@ export default function Teacher() {
 
       {teaches && <TeacherClassPanel courses={courses} />}
 
-      <Card title="Конструктор курсов" size="small">
+      <Card className="cabinet-card" title="Конструктор курсов">
         <Typography.Paragraph type="secondary">
           Гибкая сборка: разделы, блоки, презентации, quiz с автооценкой в дневник, share-ссылки.
         </Typography.Paragraph>
@@ -112,33 +109,24 @@ export default function Teacher() {
       </Card>
 
       {stats && (
-        <Row gutter={[12, 12]}>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic title="Учеников" value={stats.students} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic title="Курсов" value={stats.courses} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic title="Уроков" value={stats.lessons} />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card>
-              <Statistic title="Записей" value={stats.enrollments} />
-            </Card>
-          </Col>
-        </Row>
+        <CabinetGrid columns={4}>
+          <Card className="cabinet-card">
+            <Statistic title="Учеников" value={stats.students} />
+          </Card>
+          <Card className="cabinet-card">
+            <Statistic title="Курсов" value={stats.courses} />
+          </Card>
+          <Card className="cabinet-card">
+            <Statistic title="Уроков" value={stats.lessons} />
+          </Card>
+          <Card className="cabinet-card">
+            <Statistic title="Записей" value={stats.enrollments} />
+          </Card>
+        </CabinetGrid>
       )}
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
-          <Card title="Новый курс">
+      <CabinetGrid columns={2}>
+          <Card className="cabinet-card" title="Новый курс">
             <Form
               form={courseForm}
               layout="vertical"
@@ -189,9 +177,7 @@ export default function Teacher() {
               </Button>
             </Form>
           </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Новый урок">
+          <Card className="cabinet-card" title="Новый урок">
             <Form form={lessonForm} layout="vertical" onFinish={createLesson} initialValues={{ duration_min: 25 }}>
               <Form.Item name="course_id" label="Курс" rules={[{ required: true }]}>
                 <Select options={courses.map((c) => ({ value: c.id, label: c.title }))} />
@@ -210,8 +196,7 @@ export default function Teacher() {
               </Button>
             </Form>
           </Card>
-        </Col>
-      </Row>
-    </Space>
+      </CabinetGrid>
+    </CabinetShell>
   );
 }

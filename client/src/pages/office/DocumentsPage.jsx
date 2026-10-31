@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import {
   Alert,
   Button,
@@ -28,6 +29,7 @@ const DOC_TYPES = [
 
 export default function DocumentsPage() {
   const { user } = useAuth();
+  const isStudent = user?.role === 'student';
   const isStaff = can(user, 'office.documents', 'content.teach');
   const [docs, setDocs] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -43,13 +45,16 @@ export default function DocumentsPage() {
   }
 
   useEffect(() => {
+    if (isStudent) return;
     load();
     if (isStaff) {
       api('/contacts')
         .then((d) => setContacts(d.contacts || []))
         .catch(() => {});
     }
-  }, [filter, isStaff]);
+  }, [filter, isStaff, isStudent]);
+
+  if (isStudent) return <Navigate to="/dashboard" replace />;
 
   async function onCreate(values) {
     try {

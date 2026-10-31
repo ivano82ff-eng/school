@@ -4,19 +4,21 @@ import {
   Alert,
   Button,
   Card,
-  Col,
   Empty,
+  Form,
   Input,
   List,
   Progress,
-  Row,
+  Select,
   Space,
   Tag,
   Typography,
+  message,
 } from 'antd';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { flag, homePathFor } from '../permissions';
+import { CabinetGrid, CabinetShell } from '../components/CabinetShell';
 import MaterialPreview from '../components/MaterialPreview';
 
 export default function Dashboard() {
@@ -24,9 +26,12 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [answerDrafts, setAnswerDrafts] = useState({});
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState('');
   const [gradebook, setGradebook] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [teachers, setTeachers] = useState([]);
+  const [schoolForm] = Form.useForm();
+  const [teacherForm] = Form.useForm();
 
   function load() {
     if (flag(user, 'student')) {
@@ -36,6 +41,9 @@ export default function Dashboard() {
       api('/gradebook/me')
         .then(setGradebook)
         .catch(() => setGradebook({ groups: [] }));
+      api('/messages/teachers')
+        .then((data) => setTeachers(data.teachers || []))
+        .catch(() => setTeachers([]));
     }
   }
 
@@ -51,10 +59,40 @@ export default function Dashboard() {
         method: 'POST',
         body: JSON.stringify({ answer }),
       });
-      setMessage('Домашка отправлена!');
+      setNotice('Домашка отправлена!');
       load();
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function sendSchool(values) {
+    try {
+      await api('/messages/threads', {
+        method: 'POST',
+        body: JSON.stringify({ subject: values.subject, body: values.body }),
+      });
+      schoolForm.resetFields();
+      message.success('Сообщение отправлено в школу');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function sendTeacher(values) {
+    try {
+      await api('/messages/threads', {
+        method: 'POST',
+        body: JSON.stringify({
+          subject: values.subject,
+          body: values.body,
+          teacherId: values.teacherId,
+        }),
+      });
+      teacherForm.resetFields();
+      message.success('Сообщение отправлено преподавателю');
+    } catch (err) {
+      setError(err.message);
     }
   }
 
@@ -94,23 +132,58 @@ export default function Dashboard() {
   const { courses, homework, upcoming, announcements, certificates, materials = [], attendance = [] } = data;
 
   return (
-    <Space direction="vertical" size={20} style={{ width: '100%' }}>
-      <div>
-        <Typography.Title level={2} style={{ marginBottom: 4 }}>
-          Привет, {user.name}!
-        </Typography.Title>
-        <Typography.Paragraph type="secondary">
-          {user.grade ? `${user.grade} класс · ` : ''}
-          Курсы, домашка, расписание и объявления
-        </Typography.Paragraph>
-      </div>
-
-      {message && <Alert type="success" message={message} showIcon />}
+    <CabinetShell
+      title={`Привет, ${user.name}!`}
+      subtitle={`${user.grade ? `${user.grade} класс · ` : ''}Курсы, домашка, расписание и объявления`}
+    >
+      {notice && <Alert type="success" message={notice} showIcon />}
       {error && <Alert type="error" message={error} showIcon />}
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}>
-          <Card title="Ближайшие занятия" size="small">
+      <CabinetGrid columns={2}>
+        <Card className="cabinet-card" title="Написать в школу">
+          <Typography.Paragraph type="secondary">
+            Одно сообщение школе: его получат преподаватели и администратор.
+          </Typography.Paragraph>
+          <Form form={schoolForm} layout="vertical" onFinish={sendSchool}>
+            <Form.Item name="subject" label="Тема" rules={[{ required: true, message: 'Введите тему' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="body" label="Текст" rules={[{ required: true, message: 'Введите текст' }]}>
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit">
+              Отправить в школу
+            </Button>
+          </Form>
+        </Card>
+        <Card className="cabinet-card" title="Написать преподавателю">
+          <Typography.Paragraph type="secondary">
+            Отдельное сообщение одному преподавателю.
+          </Typography.Paragraph>
+          <Form form={teacherForm} layout="vertical" onFinish={sendTeacher}>
+            <Form.Item name="teacherId" label="Преподаватель" rules={[{ required: true, message: 'Выберите преподавателя' }]}>
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder="Кому"
+                options={teachers.map((teacher) => ({ value: teacher.id, label: teacher.name }))}
+              />
+            </Form.Item>
+            <Form.Item name="subject" label="Тема" rules={[{ required: true, message: 'Введите тему' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="body" label="Текст" rules={[{ required: true, message: 'Введите текст' }]}>
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit">
+              Отправить преподавателю
+            </Button>
+          </Form>
+        </Card>
+      </CabinetGrid>
+
+      <CabinetGrid columns={3}>
+          <Card className="cabinet-card" title="Ближайшие занятия">
             <List
               size="small"
               locale={{ emptyText: 'Пока нет' }}
@@ -122,9 +195,7 @@ export default function Dashboard() {
               )}
             />
           </Card>
-        </Col>
-        <Col xs={24} md={8}>
-          <Card title="Объявления" size="small">
+          <Card className="cabinet-card" title="Объявления">
             <List
               size="small"
               locale={{ emptyText: 'Пока тихо' }}
@@ -136,9 +207,7 @@ export default function Dashboard() {
               )}
             />
           </Card>
-        </Col>
-        <Col xs={24} md={8}>
-          <Card title="Сертификаты" size="small">
+          <Card className="cabinet-card" title="Сертификаты">
             <List
               size="small"
               locale={{ emptyText: 'Пройди курс до конца' }}
@@ -159,18 +228,17 @@ export default function Dashboard() {
               )}
             />
           </Card>
-        </Col>
-      </Row>
+      </CabinetGrid>
 
-      <Card title="Домашние задания">
+      <Card className="cabinet-card" title="Домашние задания">
         {homework.length === 0 ? (
           <Empty description="Нет активных заданий" />
         ) : (
-          <Row gutter={[16, 16]}>
+          <CabinetGrid columns={2}>
             {homework.map((h) => (
-              <Col xs={24} lg={12} key={h.submission_id}>
                 <Card
-                  size="small"
+                  key={h.submission_id}
+                  className="cabinet-card"
                   title={h.title}
                   extra={<Tag color={h.status === 'done' ? 'success' : 'processing'}>{h.status}</Tag>}
                 >
@@ -203,13 +271,12 @@ export default function Dashboard() {
                   )}
                   {h.grade && <Alert type="success" message={`Оценка: ${h.grade}`} style={{ marginTop: 8 }} />}
                 </Card>
-              </Col>
             ))}
-          </Row>
+          </CabinetGrid>
         )}
       </Card>
 
-      <Card title="Табель">
+      <Card className="cabinet-card" title="Табель">
         {(gradebook?.groups || []).length === 0 ? (
           <Empty description="Оценок пока нет" />
         ) : (
@@ -235,7 +302,7 @@ export default function Dashboard() {
         )}
       </Card>
 
-      <Card title="Материалы курсов">
+      <Card className="cabinet-card" title="Материалы курсов">
         {materials.length === 0 ? (
           <Empty description="Материалов пока нет" />
         ) : (
@@ -267,7 +334,7 @@ export default function Dashboard() {
       <MaterialPreview material={preview} open={!!preview} onClose={() => setPreview(null)} />
 
       {attendance.length > 0 && (
-        <Card title="Посещаемость">
+        <Card className="cabinet-card" title="Посещаемость">
           <Space wrap>
             {attendance.map((row) => (
               <Tag key={row.status}>
@@ -278,8 +345,7 @@ export default function Dashboard() {
         </Card>
       )}
 
-      <div>
-        <Typography.Title level={3}>Мои курсы</Typography.Title>
+      <Card className="cabinet-card" title="Мои курсы">
         {courses.length === 0 ? (
           <Empty
             description="Пока нет записанных курсов"
@@ -290,18 +356,17 @@ export default function Dashboard() {
             }
           />
         ) : (
-          <Row gutter={[16, 16]}>
+          <CabinetGrid columns={3}>
             {courses.map((course) => {
               const progress =
                 course.lessonsCount > 0
                   ? Math.round((course.completedLessons / course.lessonsCount) * 100)
                   : 0;
               return (
-                <Col xs={24} sm={12} lg={8} key={course.id}>
-                  <Link to={`/courses/${course.id}`}>
+                  <Link to={`/courses/${course.id}`} key={course.id}>
                     <Card
                       hoverable
-                      className="course-accent"
+                      className="cabinet-card course-accent"
                       style={{ '--accent': course.cover_color }}
                       title={`${course.icon} ${course.title}`}
                       extra={<Tag>{progress}%</Tag>}
@@ -312,12 +377,11 @@ export default function Dashboard() {
                       <Progress percent={progress} size="small" />
                     </Card>
                   </Link>
-                </Col>
               );
             })}
-          </Row>
+          </CabinetGrid>
         )}
-      </div>
-    </Space>
+      </Card>
+    </CabinetShell>
   );
 }

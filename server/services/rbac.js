@@ -86,7 +86,7 @@ const ROLE_PERMS = {
     'marketing.landings', 'marketing.analytics',
   ],
   student: [
-    'student.learn', 'diary.access', 'messages.access', 'portfolio.access', 'documents.access',
+    'student.learn', 'diary.access', 'messages.access', 'portfolio.access',
   ],
   parent: [
     'parent.portal', 'diary.access', 'messages.access', 'portfolio.access', 'documents.access',
@@ -267,6 +267,13 @@ function syncMethodistContentAccess() {
   );
 }
 
+function syncStudentCabinet() {
+  db.prepare(
+    `DELETE FROM role_permissions
+     WHERE role_code = 'student' AND permission_code = 'documents.access'`
+  ).run();
+}
+
 function initRbac() {
   ensureRbacTables();
   migrateUsersRoleConstraint();
@@ -282,6 +289,7 @@ function initRbac() {
   grant.run('analyst', 'marketing.analytics');
   freezeUnusedRoles();
   syncMethodistContentAccess();
+  syncStudentCabinet();
 }
 
 module.exports = {

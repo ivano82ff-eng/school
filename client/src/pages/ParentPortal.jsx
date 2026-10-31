@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { Alert, Button, Card, Col, List, Row, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, List, Space, Tag } from 'antd';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { flag } from '../permissions';
+import { CabinetGrid, CabinetShell } from '../components/CabinetShell';
 
 const BILL_STATUS = {
   pending: 'К оплате',
@@ -39,22 +40,17 @@ export default function ParentPortal() {
   if (!data) return <Card loading />;
 
   return (
-    <Space direction="vertical" size={20} style={{ width: '100%' }}>
-      <div>
-        <Typography.Title level={2} style={{ marginBottom: 4 }}>
-          Кабинет родителя
-        </Typography.Title>
-        <Typography.Paragraph type="secondary">
-          Оплаты, расписание, посещаемость и домашние задания
-        </Typography.Paragraph>
-      </div>
-
+    <CabinetShell
+      title="Кабинет родителя"
+      subtitle="Оплаты, расписание, посещаемость и домашние задания"
+    >
       {data.children.length === 0 ? (
         <Alert type="info" message="Пока нет привязанных детей. Попросите школу связать ваш контакт." />
       ) : (
         data.children.map(({ child, groups, payments, attendance, attendanceMarks, homework, upcoming, grades }) => (
           <Card
             key={child.id}
+            className="cabinet-card"
             title={`${child.name}${child.grade ? ` · ${child.grade} класс` : ''}`}
             extra={
               <Link to="/messages">
@@ -62,9 +58,8 @@ export default function ParentPortal() {
               </Link>
             }
           >
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Группы</Typography.Title>
+            <CabinetGrid columns={3}>
+              <Card className="cabinet-card" title="Группы">
                 <List
                   size="small"
                   dataSource={groups}
@@ -75,9 +70,8 @@ export default function ParentPortal() {
                     </List.Item>
                   )}
                 />
-              </Col>
-              <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Ближайшие занятия</Typography.Title>
+              </Card>
+              <Card className="cabinet-card" title="Ближайшие занятия">
                 <List
                   size="small"
                   dataSource={upcoming}
@@ -88,9 +82,8 @@ export default function ParentPortal() {
                     </List.Item>
                   )}
                 />
-              </Col>
-              <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Счета</Typography.Title>
+              </Card>
+              <Card className="cabinet-card" title="Счета">
                 <List
                   size="small"
                   dataSource={payments}
@@ -109,9 +102,8 @@ export default function ParentPortal() {
                     </List.Item>
                   )}
                 />
-              </Col>
-              <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Посещаемость</Typography.Title>
+              </Card>
+              <Card className="cabinet-card" title="Посещаемость">
                 <Space wrap style={{ marginBottom: 8 }}>
                   {attendance.map((a) => (
                     <Tag key={a.status}>
@@ -132,9 +124,8 @@ export default function ParentPortal() {
                     </List.Item>
                   )}
                 />
-              </Col>
-              <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Домашние задания</Typography.Title>
+              </Card>
+              <Card className="cabinet-card" title="Домашние задания">
                 <List
                   size="small"
                   dataSource={homework}
@@ -153,9 +144,8 @@ export default function ParentPortal() {
                     </List.Item>
                   )}
                 />
-              </Col>
-              <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Оценки</Typography.Title>
+              </Card>
+              <Card className="cabinet-card" title="Оценки">
                 <List
                   size="small"
                   dataSource={grades || []}
@@ -176,11 +166,11 @@ export default function ParentPortal() {
                     </List.Item>
                   )}
                 />
-              </Col>
-            </Row>
+              </Card>
+            </CabinetGrid>
           </Card>
         ))
       )}
-    </Space>
+    </CabinetShell>
   );
 }
