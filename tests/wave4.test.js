@@ -196,7 +196,7 @@ describe('wave4 messages, gradebook, materials, certificates', () => {
 
     const frozen = await api('/api/auth/login', {
       method: 'POST',
-      body: { email: 'methodist@itscool.local', password: 'methodist123' },
+      body: { email: 'accountant@itscool.local', password: 'accountant123' },
     });
     assert.equal(frozen.status, 403);
   });

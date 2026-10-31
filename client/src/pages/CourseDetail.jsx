@@ -52,7 +52,41 @@ export default function CourseDetail() {
   if (error && !data) return <Alert type="error" message={error} showIcon />;
   if (!data) return <Card loading />;
 
-  const { course, lessons, materials = [] } = data;
+  const { course, lessons, materials = [], program } = data;
+
+  function programActions(item) {
+    if (item.type === 'material') {
+      if (item.file_id) {
+        return [
+          <Button key="open" size="small" onClick={() => setPreview(item)}>
+            Открыть
+          </Button>,
+        ];
+      }
+      if (item.url) {
+        return [
+          <a key="url" href={item.url} target="_blank" rel="noreferrer">
+            Открыть
+          </a>,
+        ];
+      }
+      return [];
+    }
+    if (!course.enrolled) {
+      return [
+        <Typography.Text type="secondary" key="lock">
+          После записи
+        </Typography.Text>,
+      ];
+    }
+    return [
+      <Link key="open" to={`/lessons/${item.id}`}>
+        <Button size="small" type={item.completed ? 'default' : 'primary'}>
+          {item.completed ? 'Повторить' : 'Открыть'}
+        </Button>
+      </Link>,
+    ];
+  }
   const progress =
     course.lessonsCount > 0
       ? Math.round((course.completedLessons / course.lessonsCount) * 100)
@@ -92,6 +126,41 @@ export default function CourseDetail() {
         {error && <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} />}
       </Card>
 
+      {Array.isArray(program) ? (
+        <Card title="Программа курса">
+          <List
+            dataSource={program}
+            locale={{ emptyText: 'В курсе пока нет блоков' }}
+            renderItem={(item, idx) => (
+              <List.Item actions={programActions(item)}>
+                <List.Item.Meta
+                  title={
+                    <Space>
+                      <Tag>
+                        {item.type === 'test'
+                          ? 'Проверочная'
+                          : item.type === 'material'
+                            ? 'Материал'
+                            : 'Урок'}
+                      </Tag>
+                      {`${idx + 1}. ${item.title}`}
+                    </Space>
+                  }
+                  description={
+                    item.type === 'material'
+                      ? item.original_name || item.description
+                      : item.type === 'test'
+                        ? 'Вопросы с одним верным ответом'
+                        : `${item.duration_min} мин`
+                  }
+                />
+                {item.completed && <Tag color="success">Пройден</Tag>}
+              </List.Item>
+            )}
+          />
+        </Card>
+      ) : (
+      <>
       <Card title="Уроки курса">
         <List
           dataSource={lessons}
@@ -147,6 +216,8 @@ export default function CourseDetail() {
             )}
           />
         </Card>
+      )}
+      </>
       )}
       <MaterialPreview material={preview} open={!!preview} onClose={() => setPreview(null)} />
     </Space>

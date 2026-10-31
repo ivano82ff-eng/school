@@ -33,6 +33,7 @@ export function homePathFor(user) {
   if (flag(user, 'parent') && user.role === 'parent') return '/parent';
   if (flag(user, 'office')) return '/office';
   if (flag(user, 'admin')) return '/admin/guide';
+  if (flag(user, 'content') && user.role === 'methodist') return '/teacher/blocks';
   if (flag(user, 'content')) return '/teacher';
   if (flag(user, 'student')) return '/dashboard';
   return '/courses';

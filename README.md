@@ -135,8 +135,9 @@ npm test
 | Родитель        | parent@itscool.local       | parent123      |
 | Преподаватель   | teacher@itscool.local      | teacher123     |
 | Админ           | admin@itscool.local        | admin123       |
+| Методист        | methodist@itscool.local    | methodist123   |
 
-Роли methodist, accountant, hr, analyst и marketer остаются в базе вместе с демо-пользователями, но отключены: их нельзя назначить и под ними нельзя войти.
+Методист входит только в конструктор курсов (`/teacher/blocks`): уроки, проверочные и материалы. Роли accountant, hr, analyst и marketer остаются в базе вместе с демо-пользователями, но отключены: их нельзя назначить и под ними нельзя войти.
 
 Админ управляет людьми и действующими ролями:
 - `/admin/guide` — гид по платформе (только роль admin): MVP, карта модулей, FAQ, стратегия

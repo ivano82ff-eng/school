@@ -49,6 +49,24 @@ router.get('/', (req, res) => {
   res.json({ courses });
 });
 
+function blockKind(settingsJson) {
+  try {
+    const settings = JSON.parse(settingsJson || '{}');
+    return settings && settings.kind === 'test' ? 'test' : 'lesson';
+  } catch {
+    return 'lesson';
+  }
+}
+
+function courseOutline(course) {
+  try {
+    const settings = JSON.parse(course.settings_json || '{}');
+    return Array.isArray(settings?.outline) ? settings.outline : null;
+  } catch {
+    return null;
+  }
+}
+
 function tryUserId(req) {
   try {
     const jwt = require('jsonwebtoken');
@@ -89,7 +107,9 @@ router.get('/:id', (req, res) => {
   }
   const userId = tryUserId(req);
   const lessons = db
-    .prepare('SELECT id, title, sort_order, duration_min FROM lessons WHERE course_id = ? ORDER BY sort_order, id')
+    .prepare(
+      'SELECT id, title, sort_order, duration_min, settings_json FROM lessons WHERE course_id = ? ORDER BY sort_order, id'
+    )
     .all(course.id);
 
   let progress = [];
@@ -112,14 +132,55 @@ router.get('/:id', (req, res) => {
     )
     .all(course.id);
 
-  res.json({
+  const lessonRows = lessons.map((lesson) => ({
+    id: lesson.id,
+    title: lesson.title,
+    sort_order: lesson.sort_order,
+    duration_min: lesson.duration_min,
+    kind: blockKind(lesson.settings_json),
+    completed: !!progress.find((p) => p.lesson_id === lesson.id && p.completed),
+  }));
+
+  const outline = courseOutline(course);
+  let program = null;
+  if (outline) {
+    const byLesson = new Map(lessonRows.map((lesson) => [lesson.id, lesson]));
+    const byMaterial = new Map(materials.map((material) => [material.id, material]));
+    program = [];
+    for (const item of outline) {
+      if (item.type === 'material') {
+        const material = byMaterial.get(item.id);
+        if (!material) continue;
+        program.push({
+          type: 'material',
+          id: material.id,
+          title: material.title,
+          description: material.description,
+          url: material.url,
+          file_id: material.file_id,
+          original_name: material.original_name,
+        });
+      } else {
+        const lesson = byLesson.get(item.id);
+        if (!lesson) continue;
+        program.push({
+          type: lesson.kind === 'test' ? 'test' : 'lesson',
+          id: lesson.id,
+          title: lesson.title,
+          duration_min: lesson.duration_min,
+          completed: lesson.completed,
+        });
+      }
+    }
+  }
+
+  const body = {
     course: courseWithMeta(course, userId),
-    lessons: lessons.map((l) => ({
-      ...l,
-      completed: !!progress.find((p) => p.lesson_id === l.id && p.completed),
-    })),
+    lessons: lessonRows,
     materials,
-  });
+  };
+  if (program) body.program = program;
+  res.json(body);
 });
 
 router.post('/:id/enroll', authRequired, (req, res) => {

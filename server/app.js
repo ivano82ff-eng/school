@@ -46,6 +46,7 @@ function createApp(options = {}) {
   app.use('/api/files', require('./routes/files'));
   app.use('/api/documents', require('./routes/documents'));
   app.use('/api/builder', require('./routes/builder'));
+  app.use('/api/outline', require('./routes/outline'));
   app.use('/api/shares', require('./routes/shares'));
   app.use('/api/admin', require('./routes/admin'));
   app.use('/api/landings', require('./routes/landings'));

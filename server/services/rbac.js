@@ -38,7 +38,7 @@ const PERMISSIONS = [
 ];
 
 /** Roles that can sign in and be assigned. Other rows stay in the database. */
-const LIVE_ROLES = ['admin', 'teacher', 'student', 'parent'];
+const LIVE_ROLES = ['admin', 'teacher', 'methodist', 'student', 'parent'];
 
 function isLiveRole(code) {
   return LIVE_ROLES.includes(code);
@@ -47,7 +47,7 @@ function isLiveRole(code) {
 const ROLE_DEFS = [
   ['admin', 'Администратор', 'Полный контроль платформы', 1],
   ['teacher', 'Преподаватель', 'Обучение, офис, дневник', 1],
-  ['methodist', 'Методист', 'Курсы, конструктор, материалы, дневник', 1],
+  ['methodist', 'Методист', 'Курсы, уроки, проверочные и материалы', 1],
   ['accountant', 'Бухгалтер', 'Оплаты, отчёты, контакты', 1],
   ['hr', 'HR', 'Люди, контакты, группы', 1],
   ['analyst', 'Аналитик', 'Отчёты, журнал, поиск, экспорт', 1],
@@ -67,12 +67,7 @@ const ROLE_PERMS = {
     'portfolio.access', 'documents.access', 'search.access',
     'marketing.landings', 'marketing.analytics',
   ],
-  methodist: [
-    'office.access', 'office.dashboard', 'office.groups', 'office.schedule', 'office.homework',
-    'office.gradebook', 'office.materials', 'office.documents', 'office.announcements',
-    'content.builder', 'content.teach', 'diary.access', 'diary.manage', 'messages.access',
-    'portfolio.access', 'documents.access', 'search.access',
-  ],
+  methodist: ['content.builder', 'content.teach'],
   accountant: [
     'office.access', 'office.dashboard', 'office.contacts', 'office.payments', 'office.reports',
     'documents.access', 'office.documents', 'search.access', 'messages.access',
@@ -259,6 +254,17 @@ function freezeUnusedRoles() {
   db.prepare(
     `UPDATE roles SET active = 0 WHERE code NOT IN (${LIVE_ROLES.map(() => '?').join(',')})`
   ).run(...LIVE_ROLES);
+  db.prepare(
+    `UPDATE roles SET active = 1 WHERE code IN (${LIVE_ROLES.map(() => '?').join(',')})`
+  ).run(...LIVE_ROLES);
+}
+
+function syncMethodistContentAccess() {
+  setRolePermissions('methodist', ROLE_PERMS.methodist);
+  db.prepare('UPDATE roles SET description = ? WHERE code = ?').run(
+    'Курсы, уроки, проверочные и материалы',
+    'methodist'
+  );
 }
 
 function initRbac() {
@@ -275,6 +281,7 @@ function initRbac() {
   }
   grant.run('analyst', 'marketing.analytics');
   freezeUnusedRoles();
+  syncMethodistContentAccess();
 }
 
 module.exports = {

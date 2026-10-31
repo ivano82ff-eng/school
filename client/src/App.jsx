@@ -31,6 +31,7 @@ import PortfolioPage from './pages/PortfolioPage';
 import TrialsPage from './pages/office/TrialsPage';
 import DocumentsPage from './pages/office/DocumentsPage';
 import CourseBuilderPage from './pages/CourseBuilderPage';
+import BlockBuilderPage from './pages/BlockBuilderPage';
 import ShareRedirectPage from './pages/ShareRedirectPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
@@ -61,6 +62,22 @@ export default function App() {
         <Route path="courses/:id" element={<CourseDetail />} />
         <Route path="apply" element={<ApplyPage />} />
         <Route path="s/:token" element={<ShareRedirectPage />} />
+        <Route
+          path="teacher/blocks"
+          element={
+            <Private>
+              <BlockBuilderPage />
+            </Private>
+          }
+        />
+        <Route
+          path="teacher/blocks/:courseId"
+          element={
+            <Private>
+              <BlockBuilderPage />
+            </Private>
+          }
+        />
         <Route
           path="teacher/builder/:courseId"
           element={

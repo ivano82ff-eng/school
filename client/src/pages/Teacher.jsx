@@ -73,9 +73,20 @@ export default function Teacher() {
       <div>
         <h2 style={{ marginBottom: 4 }}>Кабинет преподавателя</h2>
         <p style={{ color: 'var(--color-text-secondary)' }}>
-          Создавай курсы и собирай уроки в конструкторе блоков (файлы, тесты, виджеты, оценки).
+          Соберите курс из уроков, проверочных и материалов на одном экране.
         </p>
       </div>
+
+      <Card size="small">
+        <Space direction="vertical">
+          <Typography.Text>
+            Урок, проверочная и материал добавляются блоками. Их можно менять местами.
+          </Typography.Text>
+          <Link to="/teacher/blocks">
+            <Button type="primary">Открыть конструктор</Button>
+          </Link>
+        </Space>
+      </Card>
 
       {error && <Alert type="error" message={error} showIcon />}
 

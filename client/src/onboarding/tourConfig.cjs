@@ -48,6 +48,33 @@ function getTourSteps(role) {
     ];
   }
 
+  if (role === 'methodist') {
+    return [
+      COMMON_WELCOME,
+      {
+        id: 'courses',
+        selector: '[data-tour="nav-courses"]',
+        title: 'Каталог курсов',
+        body: 'Здесь ученики видят опубликованные курсы.',
+        placement: 'bottom',
+      },
+      {
+        id: 'content',
+        selector: '[data-tour="nav-content"]',
+        title: 'Конструктор курса',
+        body: 'Соберите курс из уроков, проверочных и материалов и поменяйте их порядок.',
+        placement: 'bottom',
+      },
+      {
+        id: 'replay',
+        selector: '[data-tour="tour-help"]',
+        title: 'Подсказки всегда рядом',
+        body: 'Кнопка «Гид» снова покажет эти подсказки.',
+        placement: 'bottom',
+      },
+    ];
+  }
+
   if (role === 'teacher' || role === 'admin') {
     return [
       COMMON_WELCOME,

@@ -164,7 +164,7 @@ router.post('/threads', authRequired, (req, res) => {
   if (req.user.role === 'student' || req.user.role === 'parent') {
     participantIds = db
       .prepare(
-        `SELECT id FROM users WHERE active = 1 AND role IN ('teacher', 'admin', 'methodist')`
+        `SELECT id FROM users WHERE active = 1 AND role IN ('teacher', 'admin')`
       )
       .all()
       .map((u) => u.id);

@@ -104,8 +104,13 @@ router.patch('/courses/:courseId', ...staff, (req, res) => {
   if (!slug) slug = uniqueSlug(title, (s) =>
     db.prepare('SELECT 1 FROM courses WHERE slug = ? AND id != ?').get(s, course.id)
   );
-  const settings_json =
-    req.body.settings != null ? JSON.stringify(req.body.settings) : course.settings_json;
+  let settings_json = course.settings_json;
+  if (req.body.settings != null) {
+    const next = { ...req.body.settings };
+    const prev = parseJson(course.settings_json, {});
+    if (Array.isArray(prev.outline) && !Array.isArray(next.outline)) next.outline = prev.outline;
+    settings_json = JSON.stringify(next);
+  }
 
   db.prepare(
     `UPDATE courses SET title=?, description=?, slug=?, settings_json=? WHERE id=?`

@@ -79,7 +79,6 @@ describe('wave8 rbac', () => {
     const { token } = await login('admin@itscool.local', 'admin123');
     const listed = await api('/api/admin/users', { token });
     const frozen = [
-      ['methodist@itscool.local', 'methodist123'],
       ['accountant@itscool.local', 'accountant123'],
       ['hr@itscool.local', 'hr1234'],
       ['analyst@itscool.local', 'analyst123'],
@@ -93,6 +92,18 @@ describe('wave8 rbac', () => {
       });
       assert.equal(denied.status, 403);
     }
+
+    const methodist = await api('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'methodist@itscool.local', password: 'methodist123' },
+    });
+    assert.equal(methodist.status, 200);
+    assert.equal(methodist.data.user.flags.content, true);
+    assert.equal(methodist.data.user.flags.office, false);
+    assert.deepEqual(
+      [...methodist.data.user.permissions].sort(),
+      ['content.builder', 'content.teach']
+    );
   });
 
   it('admin cannot assign a frozen role and can assign teacher', async () => {
@@ -105,7 +116,7 @@ describe('wave8 rbac', () => {
         email,
         name: 'Тест Куратор',
         password: 'test1234',
-        role: 'methodist',
+        role: 'accountant',
       },
     });
     assert.equal(frozen.status, 400);
