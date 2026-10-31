@@ -12,6 +12,7 @@ import {
 } from 'antd';
 import { api } from '../api';
 import { useAuth } from '../auth';
+import { can } from '../permissions';
 import MaterialPreview from '../components/MaterialPreview';
 
 export default function CourseDetail() {
@@ -122,6 +123,11 @@ export default function CourseDetail() {
           <Link to="/courses">
             <Button>К каталогу</Button>
           </Link>
+          {can(user, 'content.builder', 'content.teach') && (
+            <Link to={`/teacher/blocks/${course.id}`}>
+              <Button>Изменить курс</Button>
+            </Link>
+          )}
         </Space>
         {error && <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} />}
       </Card>

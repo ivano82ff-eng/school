@@ -42,6 +42,7 @@ function questionsFor(lessonId) {
 
 function lessonBlock(lesson) {
   const type = lessonKind(lesson);
+  const questions = questionsFor(lesson.id);
   const block = {
     key: `${type}:${lesson.id}`,
     type,
@@ -49,8 +50,13 @@ function lessonBlock(lesson) {
     title: lesson.title,
     sort_order: lesson.sort_order,
   };
-  if (type === 'test') return { ...block, questions: questionsFor(lesson.id) };
-  return { ...block, content: lesson.content, duration_min: lesson.duration_min };
+  if (type === 'test') return { ...block, questions };
+  return {
+    ...block,
+    content: lesson.content,
+    duration_min: lesson.duration_min,
+    ...(questions.length ? { questions } : {}),
+  };
 }
 
 function materialBlock(row) {
@@ -380,6 +386,13 @@ router.patch('/courses/:courseId/blocks/:type/:id', ...editors, (req, res) => {
         duration,
         lesson.id
       );
+      if (req.body.questions != null) {
+        const questions = normalizeQuestions(req.body.questions);
+        if (!questions) {
+          return res.status(400).json({ error: 'В проверочной нужен вопрос и минимум два варианта' });
+        }
+        saveQuiz(lesson.id, title, questions);
+      }
     } else if (req.body.questions != null || req.body.title != null) {
       const questions =
         req.body.questions != null ? normalizeQuestions(req.body.questions) : questionsFor(lesson.id);

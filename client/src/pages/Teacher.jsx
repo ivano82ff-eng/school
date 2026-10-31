@@ -80,7 +80,8 @@ export default function Teacher() {
       <Card size="small">
         <Space direction="vertical">
           <Typography.Text>
-            Урок, проверочная и материал добавляются блоками. Их можно менять местами.
+            Новый курс собирается из блоков. Готовый курс, его уроки, проверочные и материалы
+            открываются в том же конструкторе через список.
           </Typography.Text>
           <Link to="/teacher/blocks">
             <Button type="primary">Открыть конструктор</Button>

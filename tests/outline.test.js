@@ -173,4 +173,103 @@ describe('course block builder', () => {
     const hr = await login('hr@itscool.local', 'hr1234');
     assert.equal(hr.status, 403);
   });
+
+  it('edits an existing course, lesson, test, and material', async () => {
+    const methodist = await login('methodist@itscool.local', 'methodist123');
+    assert.equal(methodist.status, 200);
+    const token = methodist.data.token;
+
+    const listed = await api('/api/outline/courses', { token });
+    const course = listed.data.courses.find((item) => item.title === 'Алгоритмы и логика');
+    assert.ok(course);
+    const opened = await api(`/api/outline/courses/${course.id}`, { token });
+    assert.equal(opened.status, 200);
+    const lesson = opened.data.blocks.find(
+      (block) => block.type === 'lesson' && block.title === 'Что такое алгоритм?'
+    );
+    assert.ok(lesson?.questions?.length);
+    assert.match(lesson.content, /Алгоритм/);
+
+    const coursePatch = await api(`/api/outline/courses/${course.id}`, {
+      method: 'PATCH',
+      token,
+      body: { description: 'Обновлённое описание алгоритмов' },
+    });
+    assert.equal(coursePatch.status, 200, coursePatch.data.error);
+    assert.equal(coursePatch.data.course.description, 'Обновлённое описание алгоритмов');
+
+    const lessonPatch = await api(`/api/outline/courses/${course.id}/blocks/lesson/${lesson.id}`, {
+      method: 'PATCH',
+      token,
+      body: {
+        title: 'Что такое алгоритм? (правка)',
+        content: 'Алгоритм — это последовательность шагов. Текст обновлён.',
+        duration_min: lesson.duration_min,
+        questions: [
+          {
+            question: 'Алгоритм — это последовательность?',
+            options: ['Нет', 'Да'],
+            correct_index: 1,
+          },
+        ],
+      },
+    });
+    assert.equal(lessonPatch.status, 200, lessonPatch.data.error);
+    const saved = lessonPatch.data.blocks.find((block) => block.id === lesson.id);
+    assert.equal(saved.title, 'Что такое алгоритм? (правка)');
+    assert.equal(saved.questions[0].question, 'Алгоритм — это последовательность?');
+    assert.equal(saved.questions[0].correct_index, 1);
+
+    const teacher = await login('teacher@itscool.local', 'teacher123');
+    const python = listed.data.courses.find((item) => item.title.startsWith('Python'));
+    const pythonOpen = await api(`/api/outline/courses/${python.id}`, { token: teacher.data.token });
+    const material = pythonOpen.data.blocks.find((block) => block.type === 'material');
+    assert.ok(material);
+    const materialPatch = await api(
+      `/api/outline/courses/${python.id}/blocks/material/${material.id}`,
+      {
+        method: 'PATCH',
+        token: teacher.data.token,
+        body: { title: 'Шпаргалка (правка)', description: material.description, url: material.url },
+      }
+    );
+    assert.equal(materialPatch.status, 200, materialPatch.data.error);
+
+    const admin = await login('admin@itscool.local', 'admin123');
+    const adminPatch = await api(`/api/outline/courses/${course.id}`, {
+      method: 'PATCH',
+      token: admin.data.token,
+      body: { icon: '🧠' },
+    });
+    assert.equal(adminPatch.status, 200, adminPatch.data.error);
+
+    const student = await login('student@itscool.local', 'student123');
+    const parent = await login('parent@itscool.local', 'parent123');
+    const studentEdit = await api(`/api/outline/courses/${course.id}`, {
+      method: 'PATCH',
+      token: student.data.token,
+      body: { description: 'нельзя' },
+    });
+    const parentEdit = await api(`/api/outline/courses/${course.id}/blocks/lesson/${lesson.id}`, {
+      method: 'PATCH',
+      token: parent.data.token,
+      body: { title: 'нельзя', content: 'нельзя' },
+    });
+    assert.equal(studentEdit.status, 403);
+    assert.equal(parentEdit.status, 403);
+
+    await api(`/api/courses/${course.id}/enroll`, { method: 'POST', token: student.data.token });
+    const seen = await api(`/api/lessons/${lesson.id}`, { token: student.data.token });
+    assert.equal(seen.status, 200);
+    assert.match(seen.data.lesson.content, /Текст обновлён/);
+    assert.equal(seen.data.quiz.questions[0].question, 'Алгоритм — это последовательность?');
+    assert.equal(seen.data.quiz.questions[0].correct_index, undefined);
+
+    const catalog = await api(`/api/courses/${course.id}`);
+    assert.equal(catalog.data.course.description, 'Обновлённое описание алгоритмов');
+    assert.equal(catalog.data.course.icon, '🧠');
+
+    const accountant = await login('accountant@itscool.local', 'accountant123');
+    assert.equal(accountant.status, 403);
+  });
 });

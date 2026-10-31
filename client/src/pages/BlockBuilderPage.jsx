@@ -52,6 +52,13 @@ function draftsFrom(blocks) {
         content: block.content || '',
         duration_min: block.duration_min,
       };
+      if (block.questions?.length) {
+        next[block.key].questions = block.questions.map((q) => ({
+          question: q.question,
+          options: [...q.options],
+          correct_index: q.correct_index,
+        }));
+      }
     } else if (block.type === 'test') {
       const questions = block.questions?.length ? block.questions : [emptyQuestion()];
       next[block.key] = {
@@ -257,42 +264,11 @@ export default function BlockBuilderPage() {
     }
   }
 
-  function renderLesson(block) {
+  function renderQuestions(block) {
     const draft = drafts[block.key];
-    if (!draft) return null;
-    return (
-      <Space direction="vertical" style={{ width: '100%' }}>
-        <Input
-          value={draft.title}
-          placeholder="Название урока"
-          onChange={(e) => updateDraft(block.key, { title: e.target.value })}
-        />
-        <Input.TextArea
-          rows={5}
-          value={draft.content}
-          placeholder="Текст урока"
-          onChange={(e) => updateDraft(block.key, { content: e.target.value })}
-        />
-        <InputNumber
-          min={5}
-          value={draft.duration_min}
-          addonAfter="мин"
-          onChange={(value) => updateDraft(block.key, { duration_min: value || 20 })}
-        />
-      </Space>
-    );
-  }
-
-  function renderTest(block) {
-    const draft = drafts[block.key];
-    if (!draft) return null;
+    if (!draft?.questions) return null;
     return (
       <Space direction="vertical" style={{ width: '100%' }} size={12}>
-        <Input
-          value={draft.title}
-          placeholder="Название проверочной"
-          onChange={(e) => updateDraft(block.key, { title: e.target.value })}
-        />
         {draft.questions.map((question, qIndex) => (
           <Card key={qIndex} size="small" title={`Вопрос ${qIndex + 1}`}>
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -393,6 +369,53 @@ export default function BlockBuilderPage() {
         >
           Вопрос
         </Button>
+      </Space>
+    );
+  }
+
+  function renderLesson(block) {
+    const draft = drafts[block.key];
+    if (!draft) return null;
+    return (
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Input
+          value={draft.title}
+          placeholder="Название урока"
+          onChange={(e) => updateDraft(block.key, { title: e.target.value })}
+        />
+        <Input.TextArea
+          rows={5}
+          value={draft.content}
+          placeholder="Текст урока"
+          onChange={(e) => updateDraft(block.key, { content: e.target.value })}
+        />
+        <InputNumber
+          min={5}
+          value={draft.duration_min}
+          addonAfter="мин"
+          onChange={(value) => updateDraft(block.key, { duration_min: value || 20 })}
+        />
+        {draft.questions ? (
+          <>
+            <Typography.Text strong>Проверочная этого урока</Typography.Text>
+            {renderQuestions(block)}
+          </>
+        ) : null}
+      </Space>
+    );
+  }
+
+  function renderTest(block) {
+    const draft = drafts[block.key];
+    if (!draft) return null;
+    return (
+      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+        <Input
+          value={draft.title}
+          placeholder="Название проверочной"
+          onChange={(e) => updateDraft(block.key, { title: e.target.value })}
+        />
+        {renderQuestions(block)}
         <Typography.Text type="secondary">Отметьте верный вариант.</Typography.Text>
       </Space>
     );
@@ -443,8 +466,9 @@ export default function BlockBuilderPage() {
           Конструктор курса
         </Typography.Title>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          Один экран: курс, затем блоки «урок», «проверочная» и «материал». Порядок меняется
-          стрелками или перетаскиванием. Ученики и родители видят опубликованный курс в каталоге.
+          Выберите существующий курс в списке или создайте новый. На этом экране меняются название
+          курса, текст урока, вопросы проверочной и материал. Сохраните курс и каждый блок.
+          Ученики и родители видят результат в каталоге и не открывают конструктор.
         </Typography.Paragraph>
       </div>
 
@@ -455,7 +479,7 @@ export default function BlockBuilderPage() {
           <Select
             showSearch
             optionFilterProp="label"
-            placeholder="Открыть курс"
+            placeholder="Существующий курс"
             style={{ minWidth: 280 }}
             value={courseId ? Number(courseId) : undefined}
             options={courses.map((item) => ({
@@ -523,6 +547,12 @@ export default function BlockBuilderPage() {
             </Space>
           }
         >
+          {blocks.length > 0 && (
+            <Typography.Paragraph type="secondary">
+              Это блоки выбранного курса. Измените текст и нажмите «Сохранить блок». Проверочная
+              внутри урока сохраняется вместе с ним.
+            </Typography.Paragraph>
+          )}
           {blocks.length === 0 && (
             <Typography.Paragraph type="secondary">
               Добавьте первый блок. Урок — текст, проверочная — вопросы с одним верным ответом,
@@ -543,6 +573,9 @@ export default function BlockBuilderPage() {
                   <Space>
                     <HolderOutlined />
                     <Tag>{LABELS[block.type]}</Tag>
+                    {block.type === 'lesson' && block.questions?.length ? (
+                      <Tag>Проверочная</Tag>
+                    ) : null}
                     <span>{drafts[block.key]?.title || block.title}</span>
                   </Space>
                 }
