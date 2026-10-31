@@ -17,11 +17,13 @@ import {
 } from 'antd';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { flag } from '../permissions';
+import { can, flag } from '../permissions';
+import TeacherClassPanel from './TeacherClassPanel';
 
 export default function Teacher() {
   const { user } = useAuth();
   const allowed = flag(user, 'content');
+  const teaches = can(user, 'office.gradebook');
   const [stats, setStats] = useState(null);
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState('');
@@ -90,6 +92,8 @@ export default function Teacher() {
       </Card>
 
       {error && <Alert type="error" message={error} showIcon />}
+
+      {teaches && <TeacherClassPanel courses={courses} />}
 
       <Card title="Конструктор курсов" size="small">
         <Typography.Paragraph type="secondary">

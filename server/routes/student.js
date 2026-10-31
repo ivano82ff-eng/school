@@ -82,6 +82,18 @@ router.get('/dashboard', authRequired, requirePermission('student.learn'), (req,
     )
     .all();
 
+  const materials = db
+    .prepare(
+      `SELECT m.id, m.course_id, m.title, m.url, m.description, m.file_id, f.original_name,
+              c.title AS course_title, c.icon
+       FROM course_materials m
+       JOIN courses c ON c.id = m.course_id
+       JOIN enrollments e ON e.course_id = c.id AND e.user_id = ?
+       LEFT JOIN files f ON f.id = m.file_id
+       ORDER BY c.title, m.sort_order, m.id`
+    )
+    .all(req.user.id);
+
   const certificates = db
     .prepare(
       `SELECT cert.*, c.title as course_title, c.icon
@@ -100,6 +112,7 @@ router.get('/dashboard', authRequired, requirePermission('student.learn'), (req,
     attendance,
     announcements,
     certificates,
+    materials,
   });
 });
 

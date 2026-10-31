@@ -5,6 +5,13 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { flag } from '../permissions';
 
+const BILL_STATUS = {
+  pending: 'К оплате',
+  overdue: 'Просрочен',
+  paid: 'Оплачен',
+  cancelled: 'Отменён',
+};
+
 function money(n) {
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
@@ -45,7 +52,7 @@ export default function ParentPortal() {
       {data.children.length === 0 ? (
         <Alert type="info" message="Пока нет привязанных детей. Попросите школу связать ваш контакт." />
       ) : (
-        data.children.map(({ child, groups, payments, attendance, homework, upcoming, grades }) => (
+        data.children.map(({ child, groups, payments, attendance, attendanceMarks, homework, upcoming, grades }) => (
           <Card
             key={child.id}
             title={`${child.name}${child.grade ? ` · ${child.grade} класс` : ''}`}
@@ -83,29 +90,45 @@ export default function ParentPortal() {
                 />
               </Col>
               <Col xs={24} md={12} lg={8}>
-                <Typography.Title level={5}>Оплаты</Typography.Title>
+                <Typography.Title level={5}>Счета</Typography.Title>
                 <List
                   size="small"
                   dataSource={payments}
+                  locale={{ emptyText: 'Счетов нет' }}
                   renderItem={(p) => (
                     <List.Item>
-                      <Tag color={p.status === 'paid' ? 'success' : 'warning'}>{p.status}</Tag>
-                      <strong>{money(p.amount)}</strong>
-                      <span style={{ color: '#4d6b60' }}>до {p.due_date}</span>
+                      <List.Item.Meta
+                        title={`Счёт №${p.id} · ${money(p.amount)}`}
+                        description={`${BILL_STATUS[p.status] || p.status} · до ${p.due_date}${
+                          p.group_name ? ` · ${p.group_name}` : ''
+                        }${p.description ? ` · ${p.description}` : ''}`}
+                      />
+                      <Tag color={p.status === 'paid' ? 'success' : p.status === 'overdue' ? 'error' : 'warning'}>
+                        {BILL_STATUS[p.status] || p.status}
+                      </Tag>
                     </List.Item>
                   )}
                 />
               </Col>
               <Col xs={24} md={12} lg={8}>
                 <Typography.Title level={5}>Посещаемость</Typography.Title>
+                <Space wrap style={{ marginBottom: 8 }}>
+                  {attendance.map((a) => (
+                    <Tag key={a.status}>
+                      {a.status}: {a.c}
+                    </Tag>
+                  ))}
+                </Space>
                 <List
                   size="small"
-                  dataSource={attendance}
+                  dataSource={attendanceMarks || []}
                   locale={{ emptyText: 'Нет отметок' }}
-                  renderItem={(a) => (
+                  renderItem={(mark) => (
                     <List.Item>
-                      <Tag>{a.status}</Tag>
-                      <strong>{a.c}</strong>
+                      <List.Item.Meta
+                        title={`${mark.group_name}${mark.title ? ` · ${mark.title}` : ''}`}
+                        description={`${mark.starts_at} · ${mark.status}`}
+                      />
                     </List.Item>
                   )}
                 />
@@ -142,9 +165,12 @@ export default function ParentPortal() {
                       <List.Item.Meta
                         title={g.group_name}
                         description={
-                          g.quizAvg != null
-                            ? `Тесты: ${g.quizAvg}% · оценок ДЗ: ${g.homework?.length || 0}`
-                            : `Оценок ДЗ: ${g.homework?.length || 0}`
+                          <>
+                            {g.quizAvg != null ? `Тесты: ${g.quizAvg}%. ` : ''}
+                            {(g.homework || []).length === 0
+                              ? 'Оценок ДЗ пока нет'
+                              : (g.homework || []).map((row) => `${row.title}: ${row.grade}`).join(' · ')}
+                          </>
                         }
                       />
                     </List.Item>

@@ -48,7 +48,12 @@ router.get('/dashboard', (req, res) => {
 
     const payments = db
       .prepare(
-        `SELECT * FROM payments WHERE contact_id = ? ORDER BY due_date DESC LIMIT 10`
+        `SELECT p.*, g.name AS group_name
+         FROM payments p
+         LEFT JOIN groups g ON g.id = p.group_id
+         WHERE p.contact_id = ?
+         ORDER BY p.due_date DESC
+         LIMIT 10`
       )
       .all(child.id);
 
@@ -56,6 +61,18 @@ router.get('/dashboard', (req, res) => {
       .prepare(
         `SELECT a.status, COUNT(*) as c FROM attendance a
          WHERE a.contact_id = ? GROUP BY a.status`
+      )
+      .all(child.id);
+
+    const attendanceMarks = db
+      .prepare(
+        `SELECT a.status, a.note, s.starts_at, s.title, g.name AS group_name
+         FROM attendance a
+         JOIN schedule_sessions s ON s.id = a.session_id
+         JOIN groups g ON g.id = s.group_id
+         WHERE a.contact_id = ?
+         ORDER BY s.starts_at DESC
+         LIMIT 8`
       )
       .all(child.id);
 
@@ -108,7 +125,7 @@ router.get('/dashboard', (req, res) => {
       return { group_id: g.id, group_name: g.name, homework: gradedHw, quizAvg };
     });
 
-    return { child, groups, payments, attendance, homework, upcoming, grades };
+    return { child, groups, payments, attendance, attendanceMarks, homework, upcoming, grades };
   });
 
   res.json({ parent, children });

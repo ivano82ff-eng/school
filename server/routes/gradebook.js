@@ -97,6 +97,73 @@ router.get('/', ...staff, (req, res) => {
   });
 });
 
+router.get('/course/:courseId', ...staff, (req, res) => {
+  const course = db
+    .prepare('SELECT id, title, icon FROM courses WHERE id = ?')
+    .get(req.params.courseId);
+  if (!course) return res.status(404).json({ error: 'Курс не найден' });
+
+  const homework = db
+    .prepare(
+      `SELECT h.id, h.title, h.due_date, g.name AS group_name
+       FROM homework h
+       JOIN groups g ON g.id = h.group_id
+       WHERE g.course_id = ?
+       ORDER BY h.due_date, h.id`
+    )
+    .all(course.id);
+
+  const students = db
+    .prepare(
+      `SELECT DISTINCT c.id AS contact_id, c.name, c.user_id
+       FROM contacts c
+       WHERE c.type = 'student'
+         AND (
+           c.user_id IN (SELECT user_id FROM enrollments WHERE course_id = ?)
+           OR c.id IN (
+             SELECT gm.contact_id FROM group_members gm
+             JOIN groups g ON g.id = gm.group_id
+             WHERE g.course_id = ? AND gm.status = 'active'
+           )
+         )
+       ORDER BY c.name`
+    )
+    .all(course.id, course.id)
+    .map((student) => {
+      const grades = homework.map((item) => {
+        const submission = db
+          .prepare(
+            `SELECT id, grade, status FROM homework_submissions
+             WHERE homework_id = ? AND contact_id = ?`
+          )
+          .get(item.id, student.contact_id);
+        return {
+          homework_id: item.id,
+          title: item.title,
+          submission_id: submission?.id || null,
+          grade: submission?.grade || '',
+          status: submission?.status || null,
+        };
+      });
+      let quizAvg = null;
+      if (student.user_id) {
+        const row = db
+          .prepare(
+            `SELECT AVG(100.0 * qa.score / NULLIF(qa.total, 0)) AS avg
+             FROM quiz_attempts qa
+             JOIN quizzes q ON q.id = qa.quiz_id
+             JOIN lessons l ON l.id = q.lesson_id
+             WHERE qa.user_id = ? AND l.course_id = ?`
+          )
+          .get(student.user_id, course.id);
+        quizAvg = row?.avg != null ? Math.round(row.avg * 10) / 10 : null;
+      }
+      return { ...student, quizAvg, grades };
+    });
+
+  res.json({ course, homework, students });
+});
+
 /** Student own grades */
 router.get('/me', authRequired, requirePermission('student.learn', 'office.gradebook'), (req, res) => {
   const contact = db

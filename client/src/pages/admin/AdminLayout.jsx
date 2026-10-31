@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Card, Menu, Typography } from 'antd';
-import { BookOutlined, SafetyCertificateOutlined, TeamOutlined } from '@ant-design/icons';
+import { BookOutlined, HomeOutlined, SafetyCertificateOutlined, TeamOutlined } from '@ant-design/icons';
 import { useAuth } from '../../auth';
 import { can } from '../../permissions';
 
@@ -16,6 +16,7 @@ export default function AdminLayout() {
   const items = useMemo(() => {
     const list = [];
     if (isAdmin) {
+      list.push({ key: '/admin', icon: <HomeOutlined />, label: 'Кабинет' });
       list.push({ key: '/admin/guide', icon: <BookOutlined />, label: 'Гид по платформе' });
     }
     if (canUsers) {
@@ -35,12 +36,14 @@ export default function AdminLayout() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (location.pathname === '/admin' || location.pathname === '/admin/') {
-    const dest = isAdmin ? '/admin/guide' : canUsers ? '/admin/users' : '/admin/roles';
+  if (!isAdmin && (location.pathname === '/admin' || location.pathname === '/admin/')) {
+    const dest = canUsers ? '/admin/users' : '/admin/roles';
     return <Navigate to={dest} replace />;
   }
 
-  const selected = location.pathname.startsWith('/admin/roles')
+  const selected = location.pathname === '/admin'
+    ? ['/admin']
+    : location.pathname.startsWith('/admin/roles')
     ? ['/admin/roles']
     : location.pathname.startsWith('/admin/guide')
       ? ['/admin/guide']

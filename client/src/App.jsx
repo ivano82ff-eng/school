@@ -37,6 +37,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminRolesPage from './pages/admin/AdminRolesPage';
 import AdminGuidePage from './pages/admin/AdminGuidePage';
+import AdminHome from './pages/admin/AdminHome';
 import LandingsPage from './pages/office/LandingsPage';
 import LandingBuilderPage from './pages/office/LandingBuilderPage';
 import LandingAnalyticsPage from './pages/office/LandingAnalyticsPage';
@@ -166,7 +167,7 @@ export default function App() {
             </Private>
           }
         >
-          <Route index element={<Navigate to="guide" replace />} />
+          <Route index element={<AdminHome />} />
           <Route path="guide" element={<AdminGuidePage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="roles" element={<AdminRolesPage />} />

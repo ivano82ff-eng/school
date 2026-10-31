@@ -35,6 +35,33 @@ function withLive(role) {
   return role ? { ...role, live: isLiveRole(role.code) } : role;
 }
 
+router.get('/summary', requirePermission('admin.roles', '*'), (_req, res) => {
+  const students = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'student' AND active = 1`).get().c;
+  const courses = db.prepare('SELECT COUNT(*) AS c FROM courses').get().c;
+  const overdue = db
+    .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS sum FROM payments WHERE status = 'overdue'`)
+    .get();
+  const pending = db
+    .prepare(`SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS sum FROM payments WHERE status = 'pending'`)
+    .get();
+  const upcoming = db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM schedule_sessions WHERE status = 'planned' AND starts_at >= datetime('now')`
+    )
+    .get().c;
+  res.json({
+    students,
+    courses,
+    upcoming,
+    bills: {
+      overdueCount: overdue.c,
+      overdueSum: overdue.sum,
+      pendingCount: pending.c,
+      pendingSum: pending.sum,
+    },
+  });
+});
+
 router.get('/bootstrap', requirePermission('admin.users', 'admin.roles', '*'), (_req, res) => {
   res.json({
     roles: listAllRoles().map(withLive),

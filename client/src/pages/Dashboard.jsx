@@ -17,6 +17,7 @@ import {
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { flag, homePathFor } from '../permissions';
+import MaterialPreview from '../components/MaterialPreview';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -24,12 +25,17 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [answerDrafts, setAnswerDrafts] = useState({});
   const [message, setMessage] = useState('');
+  const [gradebook, setGradebook] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   function load() {
     if (flag(user, 'student')) {
       api('/student/dashboard')
         .then(setData)
         .catch((e) => setError(e.message));
+      api('/gradebook/me')
+        .then(setGradebook)
+        .catch(() => setGradebook({ groups: [] }));
     }
   }
 
@@ -85,7 +91,7 @@ export default function Dashboard() {
   if (error && !data) return <Alert type="error" message={error} showIcon />;
   if (!data) return <Card loading />;
 
-  const { courses, homework, upcoming, announcements, certificates } = data;
+  const { courses, homework, upcoming, announcements, certificates, materials = [], attendance = [] } = data;
 
   return (
     <Space direction="vertical" size={20} style={{ width: '100%' }}>
@@ -202,6 +208,75 @@ export default function Dashboard() {
           </Row>
         )}
       </Card>
+
+      <Card title="Табель">
+        {(gradebook?.groups || []).length === 0 ? (
+          <Empty description="Оценок пока нет" />
+        ) : (
+          gradebook.groups.map(({ group, student }) => (
+            <div key={group?.id || student?.contact_id} style={{ marginBottom: 12 }}>
+              <Typography.Text strong>
+                {group?.course_title || group?.name}
+                {student?.stats?.quizAvg != null ? ` · тесты ${student.stats.quizAvg}%` : ''}
+              </Typography.Text>
+              <List
+                size="small"
+                dataSource={student?.homework || []}
+                locale={{ emptyText: 'Нет заданий' }}
+                renderItem={(row) => (
+                  <List.Item>
+                    <span>{row.title}</span>
+                    <Tag>{row.grade || '—'}</Tag>
+                  </List.Item>
+                )}
+              />
+            </div>
+          ))
+        )}
+      </Card>
+
+      <Card title="Материалы курсов">
+        {materials.length === 0 ? (
+          <Empty description="Материалов пока нет" />
+        ) : (
+          <List
+            dataSource={materials}
+            renderItem={(item) => (
+              <List.Item>
+                <List.Item.Meta
+                  title={
+                    item.file_id ? (
+                      <Button type="link" style={{ padding: 0 }} onClick={() => setPreview(item)}>
+                        {item.title}
+                      </Button>
+                    ) : item.url ? (
+                      <a href={item.url} target="_blank" rel="noreferrer">
+                        {item.title}
+                      </a>
+                    ) : (
+                      item.title
+                    )
+                  }
+                  description={`${item.icon || ''} ${item.course_title}`.trim()}
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Card>
+      <MaterialPreview material={preview} open={!!preview} onClose={() => setPreview(null)} />
+
+      {attendance.length > 0 && (
+        <Card title="Посещаемость">
+          <Space wrap>
+            {attendance.map((row) => (
+              <Tag key={row.status}>
+                {row.status}: {row.c}
+              </Tag>
+            ))}
+          </Space>
+        </Card>
+      )}
 
       <div>
         <Typography.Title level={3}>Мои курсы</Typography.Title>

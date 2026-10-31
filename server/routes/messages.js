@@ -228,6 +228,76 @@ router.post('/threads', authRequired, (req, res) => {
   res.status(201).json({ thread: threadSummary(threadId, req.user.id) });
 });
 
+router.post('/course', authRequired, requirePermission('office.groups'), (req, res) => {
+  const courseId = Number(req.body?.courseId);
+  const subject = (req.body?.subject || '').trim();
+  const body = (req.body?.body || '').trim();
+  if (!courseId || !subject || !body) {
+    return res.status(400).json({ error: 'Нужны курс, тема и текст' });
+  }
+  const course = db.prepare('SELECT id, title FROM courses WHERE id = ?').get(courseId);
+  if (!course) return res.status(404).json({ error: 'Курс не найден' });
+
+  const students = db
+    .prepare(
+      `SELECT DISTINCT u.id AS user_id, c.id AS contact_id, c.name
+       FROM contacts c
+       JOIN users u ON u.id = c.user_id AND u.active = 1
+       WHERE c.type = 'student' AND u.id != ?
+         AND (
+           EXISTS (SELECT 1 FROM enrollments e WHERE e.user_id = u.id AND e.course_id = ?)
+           OR EXISTS (
+             SELECT 1 FROM group_members gm
+             JOIN groups g ON g.id = gm.group_id
+             WHERE gm.contact_id = c.id AND gm.status = 'active' AND g.course_id = ?
+           )
+         )
+       ORDER BY c.name`
+    )
+    .all(req.user.id, course.id, course.id);
+  if (!students.length) {
+    return res.status(400).json({ error: 'В курсе нет учеников с входом' });
+  }
+
+  const insertThread = db.prepare(
+    `INSERT INTO message_threads (subject, created_by, related_contact_id, group_id)
+     VALUES (?, ?, ?, NULL)`
+  );
+  const addPart = db.prepare(
+    `INSERT INTO message_participants (thread_id, user_id, last_read_at) VALUES (?, ?, datetime('now'))`
+  );
+  const insertMessage = db.prepare(
+    `INSERT INTO messages (thread_id, sender_id, body) VALUES (?, ?, ?)`
+  );
+  const sent = [];
+
+  db.exec('BEGIN');
+  try {
+    for (const student of students) {
+      const threadId = insertThread.run(subject, req.user.id, student.contact_id).lastInsertRowid;
+      addPart.run(threadId, req.user.id);
+      addPart.run(threadId, student.user_id);
+      insertMessage.run(threadId, req.user.id, body);
+      sent.push({ thread_id: threadId, user_id: student.user_id, name: student.name });
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+
+  for (const row of sent) {
+    notifyUser(row.user_id, {
+      title: 'Сообщение по курсу',
+      body: subject,
+      link: '/messages',
+      type: 'message',
+    });
+  }
+
+  res.status(201).json({ sent: sent.length, course: course.title });
+});
+
 router.post('/threads/:id/messages', authRequired, (req, res) => {
   const id = Number(req.params.id);
   if (!canReadThread(req.user, id)) {
