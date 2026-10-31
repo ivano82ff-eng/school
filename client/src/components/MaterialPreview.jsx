@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Modal, Space, Spin, Typography } from 'antd';
 import { DownloadOutlined, FileOutlined } from '@ant-design/icons';
 import { downloadMaterial, fetchMaterialBlob } from '../api';
-
-const IMAGE = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
-const VIDEO = new Set(['mp4', 'webm', 'mov']);
+import CourseFileViewer, { canViewInBrowser, fileExt } from './CourseFileViewer';
 
 const TYPE_LABEL = {
   ppt: 'Презентация PowerPoint',
@@ -30,45 +28,28 @@ const TYPE_LABEL = {
   zip: 'Архив ZIP',
 };
 
-function fileExt(name) {
-  const base = String(name || '').split(/[/\\]/).pop() || '';
-  const dot = base.lastIndexOf('.');
-  if (dot <= 0) return '';
-  return base.slice(dot + 1).toLowerCase();
-}
-
-function previewKind(ext) {
-  if (ext === 'pdf') return 'pdf';
-  if (IMAGE.has(ext)) return 'image';
-  if (VIDEO.has(ext)) return 'video';
-  return 'file';
-}
-
 export default function MaterialPreview({ material, open, onClose }) {
   const name = material?.original_name || material?.title || 'Файл';
   const ext = fileExt(name);
-  const kind = previewKind(ext);
-  const [url, setUrl] = useState('');
+  const viewable = canViewInBrowser(ext);
+  const [blob, setBlob] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!open || !material?.id || kind === 'file') {
-      setUrl('');
+    if (!open || !material?.id || !viewable) {
+      setBlob(null);
       setLoading(false);
       setError('');
       return undefined;
     }
     let cancelled = false;
-    let objectUrl = '';
     setLoading(true);
     setError('');
-    setUrl('');
+    setBlob(null);
     fetchMaterialBlob(material.id)
-      .then((blob) => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
+      .then((file) => {
+        if (!cancelled) setBlob(file);
       })
       .catch((e) => {
         if (!cancelled) setError(e.message);
@@ -78,9 +59,8 @@ export default function MaterialPreview({ material, open, onClose }) {
       });
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [open, material?.id, kind]);
+  }, [open, material?.id, viewable]);
 
   async function onDownload() {
     setError('');
@@ -96,7 +76,7 @@ export default function MaterialPreview({ material, open, onClose }) {
       open={open}
       onCancel={onClose}
       title={material?.title || 'Материал'}
-      width={kind === 'file' ? 520 : 880}
+      width={viewable ? 880 : 520}
       destroyOnClose
       footer={[
         <Button key="download" icon={<DownloadOutlined />} onClick={onDownload}>
@@ -113,16 +93,8 @@ export default function MaterialPreview({ material, open, onClose }) {
           <Spin />
         </div>
       )}
-      {kind === 'image' && url && (
-        <img src={url} alt={name} style={{ display: 'block', maxWidth: '100%', margin: '0 auto' }} />
-      )}
-      {kind === 'pdf' && url && (
-        <iframe title={name} src={url} style={{ width: '100%', height: '70vh', border: 0 }} />
-      )}
-      {kind === 'video' && url && (
-        <video src={url} controls style={{ width: '100%', maxHeight: '70vh' }} />
-      )}
-      {kind === 'file' && (
+      {viewable && blob && <CourseFileViewer blob={blob} name={name} />}
+      {!viewable && (
         <Card>
           <Space align="start" size={16}>
             <FileOutlined style={{ fontSize: 28 }} />

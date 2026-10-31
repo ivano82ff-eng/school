@@ -15,7 +15,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { api } from '../api';
+import { api, downloadMaterial } from '../api';
 import { useAuth } from '../auth';
 import { flag, homePathFor } from '../permissions';
 import { CabinetGrid, CabinetShell } from '../components/CabinetShell';
@@ -139,51 +139,7 @@ export default function Dashboard() {
       {notice && <Alert type="success" message={notice} showIcon />}
       {error && <Alert type="error" message={error} showIcon />}
 
-      <CabinetGrid columns={2}>
-        <Card className="cabinet-card" title="Написать в школу">
-          <Typography.Paragraph type="secondary">
-            Одно сообщение школе: его получат преподаватели и администратор.
-          </Typography.Paragraph>
-          <Form form={schoolForm} layout="vertical" onFinish={sendSchool}>
-            <Form.Item name="subject" label="Тема" rules={[{ required: true, message: 'Введите тему' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="body" label="Текст" rules={[{ required: true, message: 'Введите текст' }]}>
-              <Input.TextArea rows={3} />
-            </Form.Item>
-            <Button type="primary" htmlType="submit">
-              Отправить в школу
-            </Button>
-          </Form>
-        </Card>
-        <Card className="cabinet-card" title="Написать преподавателю">
-          <Typography.Paragraph type="secondary">
-            Отдельное сообщение одному преподавателю.
-          </Typography.Paragraph>
-          <Form form={teacherForm} layout="vertical" onFinish={sendTeacher}>
-            <Form.Item name="teacherId" label="Преподаватель" rules={[{ required: true, message: 'Выберите преподавателя' }]}>
-              <Select
-                showSearch
-                optionFilterProp="label"
-                placeholder="Кому"
-                options={teachers.map((teacher) => ({ value: teacher.id, label: teacher.name }))}
-              />
-            </Form.Item>
-            <Form.Item name="subject" label="Тема" rules={[{ required: true, message: 'Введите тему' }]}>
-              <Input />
-            </Form.Item>
-            <Form.Item name="body" label="Текст" rules={[{ required: true, message: 'Введите текст' }]}>
-              <Input.TextArea rows={3} />
-            </Form.Item>
-            <Button type="primary" htmlType="submit">
-              Отправить преподавателю
-            </Button>
-          </Form>
-        </Card>
-      </CabinetGrid>
-
-      <CabinetGrid columns={3}>
-          <Card className="cabinet-card" title="Ближайшие занятия">
+      <Card className="cabinet-card" title="Ближайшие занятия">
             <List
               size="small"
               locale={{ emptyText: 'Пока нет' }}
@@ -228,7 +184,6 @@ export default function Dashboard() {
               )}
             />
           </Card>
-      </CabinetGrid>
 
       <Card className="cabinet-card" title="Домашние задания">
         {homework.length === 0 ? (
@@ -309,7 +264,24 @@ export default function Dashboard() {
           <List
             dataSource={materials}
             renderItem={(item) => (
-              <List.Item>
+              <List.Item
+                actions={
+                  item.file_id
+                    ? [
+                        <Button key="open" size="small" onClick={() => setPreview(item)}>
+                          Открыть
+                        </Button>,
+                        <Button
+                          key="download"
+                          size="small"
+                          onClick={() => downloadMaterial(item.id, item.original_name || item.title)}
+                        >
+                          Скачать
+                        </Button>,
+                      ]
+                    : undefined
+                }
+              >
                 <List.Item.Meta
                   title={
                     item.file_id ? (
@@ -333,8 +305,10 @@ export default function Dashboard() {
       </Card>
       <MaterialPreview material={preview} open={!!preview} onClose={() => setPreview(null)} />
 
-      {attendance.length > 0 && (
-        <Card className="cabinet-card" title="Посещаемость">
+      <Card className="cabinet-card" title="Посещаемость">
+        {attendance.length === 0 ? (
+          <Empty description="Отметок пока нет" />
+        ) : (
           <Space wrap>
             {attendance.map((row) => (
               <Tag key={row.status}>
@@ -342,8 +316,51 @@ export default function Dashboard() {
               </Tag>
             ))}
           </Space>
+        )}
+      </Card>
+
+      <CabinetGrid columns={2}>
+        <Card className="cabinet-card" title="Написать в школу">
+          <Typography.Paragraph type="secondary">
+            Одно сообщение школе: его получат преподаватели и администратор.
+          </Typography.Paragraph>
+          <Form form={schoolForm} layout="vertical" onFinish={sendSchool}>
+            <Form.Item name="subject" label="Тема" rules={[{ required: true, message: 'Введите тему' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="body" label="Текст" rules={[{ required: true, message: 'Введите текст' }]}>
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit">
+              Отправить в школу
+            </Button>
+          </Form>
         </Card>
-      )}
+        <Card className="cabinet-card" title="Написать преподавателю">
+          <Typography.Paragraph type="secondary">
+            Отдельное сообщение одному преподавателю.
+          </Typography.Paragraph>
+          <Form form={teacherForm} layout="vertical" onFinish={sendTeacher}>
+            <Form.Item name="teacherId" label="Преподаватель" rules={[{ required: true, message: 'Выберите преподавателя' }]}>
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder="Кому"
+                options={teachers.map((teacher) => ({ value: teacher.id, label: teacher.name }))}
+              />
+            </Form.Item>
+            <Form.Item name="subject" label="Тема" rules={[{ required: true, message: 'Введите тему' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="body" label="Текст" rules={[{ required: true, message: 'Введите текст' }]}>
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit">
+              Отправить преподавателю
+            </Button>
+          </Form>
+        </Card>
+      </CabinetGrid>
 
       <Card className="cabinet-card" title="Мои курсы">
         {courses.length === 0 ? (

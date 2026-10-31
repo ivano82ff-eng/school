@@ -10,7 +10,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { api } from '../api';
+import { api, downloadMaterial } from '../api';
 import { useAuth } from '../auth';
 import { can } from '../permissions';
 import MaterialPreview from '../components/MaterialPreview';
@@ -61,6 +61,13 @@ export default function CourseDetail() {
         return [
           <Button key="open" size="small" onClick={() => setPreview(item)}>
             Открыть
+          </Button>,
+          <Button
+            key="download"
+            size="small"
+            onClick={() => downloadMaterial(item.id, item.original_name || item.title)}
+          >
+            Скачать
           </Button>,
         ];
       }
@@ -201,7 +208,24 @@ export default function CourseDetail() {
           <List
             dataSource={materials}
             renderItem={(m) => (
-              <List.Item>
+              <List.Item
+                actions={
+                  m.file_id
+                    ? [
+                        <Button key="open" size="small" onClick={() => setPreview(m)}>
+                          Открыть
+                        </Button>,
+                        <Button
+                          key="download"
+                          size="small"
+                          onClick={() => downloadMaterial(m.id, m.original_name || m.title)}
+                        >
+                          Скачать
+                        </Button>,
+                      ]
+                    : undefined
+                }
+              >
                 <List.Item.Meta
                   title={
                     m.file_id ? (

@@ -14,7 +14,7 @@ import {
   Upload,
 } from 'antd';
 import { DeleteOutlined, InboxOutlined, LinkOutlined, UploadOutlined } from '@ant-design/icons';
-import { api, uploadCourseMaterial } from '../../api';
+import { api, downloadMaterial, uploadCourseMaterial } from '../../api';
 import { useAuth } from '../../auth';
 import { can } from '../../permissions';
 import MaterialPreview from '../../components/MaterialPreview';
@@ -200,6 +200,20 @@ export default function MaterialsPage() {
           renderItem={(m) => (
             <List.Item
               actions={[
+                m.file_id ? (
+                  <Button key="open" size="small" onClick={() => setPreview(m)}>
+                    Открыть
+                  </Button>
+                ) : null,
+                m.file_id ? (
+                  <Button
+                    key="download"
+                    size="small"
+                    onClick={() => downloadMaterial(m.id, m.original_name || m.title)}
+                  >
+                    Скачать
+                  </Button>
+                ) : null,
                 <Button
                   key="del"
                   danger
@@ -207,7 +221,7 @@ export default function MaterialsPage() {
                   icon={<DeleteOutlined />}
                   onClick={() => remove(m.id)}
                 />,
-              ]}
+              ].filter(Boolean)}
             >
               <List.Item.Meta
                 title={
